@@ -12,17 +12,20 @@ struct ContentView: View {
     @AppStorage("openInApp") private var openInAppData: Data = Data()
     @State private var webSites: [String] = []
     @State private var openInApp: [Bool] = []
+    @State private var currentWebViewIndex: Int = 0
+    @State private var reloadWebView: Bool = false
 
     var body: some View {
         NavigationView {
             ZStack {
                 if !webSites.isEmpty {
-                    TabView {
+                    TabView(selection: $currentWebViewIndex) {
                         ForEach(Array(webSites.enumerated()), id: \.offset) { index, site in
-                            WebView(urlString: site, openInApp: openInApp[index])
+                            WebView(urlString: site, openInApp: openInApp[index], reloadWebView: $reloadWebView)
                                 .tabItem {
                                     Text(URL(string: site)?.host ?? "Web Page")
                                 }
+                                .tag(index)
                         }
                     }
                     .tabViewStyle(PageTabViewStyle())
@@ -42,6 +45,9 @@ struct ContentView: View {
                                 .background(Color.white.opacity(0.8))
                                 .clipShape(Circle())
                                 .shadow(radius: 10)
+                                .onTapGesture(count: 2) {
+                                    reloadWebView = true
+                                }
                         }
                         .padding()
                     }

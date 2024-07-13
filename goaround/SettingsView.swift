@@ -12,16 +12,7 @@ struct SettingsView: View {
     @AppStorage("openInApp") private var openInAppData: Data = Data()
     @AppStorage("isSettingsCompleted") private var isSettingsCompleted: Bool = false
     @State private var webSites: [String] = [
-        "https://www.example1.com",
-        "https://www.example2.com",
-        "https://www.example3.com",
-        "https://www.example4.com",
-        "https://www.example5.com",
-        "https://www.example6.com",
-        "https://www.example7.com",
-        "https://www.example8.com",
-        "https://www.example9.com",
-        "https://www.example10.com"
+        "https://www.google.com"
     ]
     @State private var openInApp: [Bool] = Array(repeating: true, count: 10)
 
