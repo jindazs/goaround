@@ -7,8 +7,6 @@
 
 import SwiftUI
 
-import SwiftUI
-
 struct ContentView: View {
     @AppStorage("webSites") private var webSitesData: Data = Data()
     @AppStorage("openInApp") private var openInAppData: Data = Data()

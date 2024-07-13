@@ -15,6 +15,7 @@ struct WebView: UIViewRepresentable {
     func makeUIView(context: Context) -> WKWebView {
         let webView = WKWebView()
         webView.navigationDelegate = context.coordinator
+        webView.uiDelegate = context.coordinator
         return webView
     }
 
@@ -26,25 +27,36 @@ struct WebView: UIViewRepresentable {
     }
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(self, openInApp: openInApp)
+        Coordinator(self)
     }
 
-    class Coordinator: NSObject, WKNavigationDelegate {
+    class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate {
         var parent: WebView
-        var openInApp: Bool
 
-        init(_ parent: WebView, openInApp: Bool) {
+        init(_ parent: WebView) {
             self.parent = parent
-            self.openInApp = openInApp
         }
 
+        // ナビゲーションデリゲートメソッド
         func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
-            if navigationAction.navigationType == .linkActivated, let url = navigationAction.request.url, !openInApp {
+            if navigationAction.navigationType == .linkActivated, let url = navigationAction.request.url, !parent.openInApp {
                 UIApplication.shared.open(url)
                 decisionHandler(.cancel)
-                return
+            } else {
+                decisionHandler(.allow)
             }
-            decisionHandler(.allow)
+        }
+
+        // UIデリゲートメソッド
+        func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration, for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
+            if navigationAction.targetFrame == nil {
+                webView.load(navigationAction.request)
+            }
+            return nil
+        }
+
+        func webViewDidClose(_ webView: WKWebView) {
+            // 必要に応じてUIを更新
         }
     }
 }
