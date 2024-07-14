@@ -11,15 +11,22 @@ struct SettingsView: View {
     @AppStorage("webSites") private var webSitesData: Data = Data()
     @AppStorage("openInApp") private var openInAppData: Data = Data()
     @AppStorage("isSettingsCompleted") private var isSettingsCompleted: Bool = false
-    @State private var webSites: [String] = [
-        "https://www.google.com"
-    ]
-    @State private var openInApp: [Bool] = Array(repeating: true, count: 10)
+    @State private var webSites: [String]
+    @State private var openInApp: [Bool]
+
+    init() {
+        // 新しい上限値に応じて、デフォルトのWebサイトとIn-App設定を変更します。
+        let defaultWebSites = Array(repeating: "", count: 20) // ここで20を希望する上限値に変更
+        let defaultOpenInApp = Array(repeating: true, count: 20)
+        
+        _webSites = State(initialValue: defaultWebSites)
+        _openInApp = State(initialValue: defaultOpenInApp)
+    }
 
     var body: some View {
         NavigationView {
             List {
-                ForEach(0..<10, id: \.self) { index in
+                ForEach(0..<webSites.count, id: \.self) { index in
                     HStack {
                         VStack(alignment: .leading) {
                             Text("Webサイト \(index + 1):")
