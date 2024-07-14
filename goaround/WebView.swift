@@ -22,23 +22,24 @@ struct WebView: UIViewRepresentable {
 
     func updateUIView(_ uiView: WKWebView, context: Context) {
         if reloadWebView {
-            if let url = URL(string: urlString) {
-                let request = URLRequest(url: url)
-                uiView.load(request)
-            }
+            loadURL(uiView)
             DispatchQueue.main.async {
                 reloadWebView = false
             }
         } else if uiView.url == nil {
-            if let url = URL(string: urlString) {
-                let request = URLRequest(url: url)
-                uiView.load(request)
-            }
+            loadURL(uiView)
         }
     }
 
     func makeCoordinator() -> Coordinator {
         Coordinator(self)
+    }
+
+    private func loadURL(_ webView: WKWebView) {
+        if let url = URL(string: urlString) {
+            let request = URLRequest(url: url)
+            webView.load(request)
+        }
     }
 
     class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate {

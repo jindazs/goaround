@@ -18,7 +18,9 @@ struct ContentView: View {
     var body: some View {
         NavigationView {
             ZStack {
-                if !webSites.isEmpty {
+                if webSites.isEmpty {
+                    Text("表示するWebサイトがありません")
+                } else {
                     TabView(selection: $currentWebViewIndex) {
                         ForEach(Array(webSites.enumerated()), id: \.offset) { index, site in
                             WebView(urlString: site, openInApp: openInApp[index], reloadWebView: $reloadWebView)
@@ -29,8 +31,6 @@ struct ContentView: View {
                         }
                     }
                     .tabViewStyle(PageTabViewStyle())
-                } else {
-                    Text("表示するWebサイトがありません")
                 }
 
                 VStack {
@@ -55,23 +55,25 @@ struct ContentView: View {
             }
             .navigationBarTitle("", displayMode: .inline)
             .navigationBarHidden(true)
-        }
-        .onAppear {
-            loadWebSites()
+            .onAppear {
+                loadWebSites()
+            }
         }
     }
 
     private func loadWebSites() {
-        if let webSites = try? JSONDecoder().decode([String].self, from: webSitesData) {
-            self.webSites = webSites.filter { !$0.isEmpty }
+        if let decodedWebSites = try? JSONDecoder().decode([String].self, from: webSitesData) {
+            webSites = decodedWebSites.filter { !$0.isEmpty }
         } else {
-            self.webSites = []
+            webSites = []
         }
 
-        if let openInApp = try? JSONDecoder().decode([Bool].self, from: openInAppData) {
-            self.openInApp = zip(webSites, openInApp).filter { !$0.0.isEmpty }.map { $0.1 }
+        if let decodedOpenInApp = try? JSONDecoder().decode([Bool].self, from: openInAppData) {
+            openInApp = zip(webSites, decodedOpenInApp)
+                .filter { !$0.0.isEmpty }
+                .map { $0.1 }
         } else {
-            self.openInApp = []
+            openInApp = []
         }
     }
 }
