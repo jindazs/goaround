@@ -3,7 +3,7 @@
 //  goaround
 //
 //  Created by Yuki Jin on 2024/07/13.
-//
+//　memo
 
 import SwiftUI
 
