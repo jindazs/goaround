@@ -49,7 +49,6 @@ struct WebView: UIViewRepresentable {
             self.parent = parent
         }
 
-        // ナビゲーションデリゲートメソッド
         func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
             if navigationAction.navigationType == .linkActivated, let url = navigationAction.request.url, !parent.openInApp {
                 UIApplication.shared.open(url)
@@ -59,7 +58,6 @@ struct WebView: UIViewRepresentable {
             }
         }
 
-        // UIデリゲートメソッド
         func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration, for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
             if navigationAction.targetFrame == nil {
                 webView.load(navigationAction.request)

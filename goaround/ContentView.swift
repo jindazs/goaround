@@ -21,16 +21,27 @@ struct ContentView: View {
                 if webSites.isEmpty {
                     Text("表示するWebサイトがありません")
                 } else {
-                    TabView(selection: $currentWebViewIndex) {
-                        ForEach(Array(webSites.enumerated()), id: \.offset) { index, site in
-                            WebView(urlString: site, openInApp: openInApp[index], reloadWebView: $reloadWebView)
-                                .tabItem {
-                                    Text(URL(string: site)?.host ?? "Web Page")
-                                }
-                                .tag(index)
+                    ZStack {
+                        TabView(selection: $currentWebViewIndex) {
+                            ForEach(Array(webSites.enumerated()), id: \.offset) { index, site in
+                                WebView(urlString: site, openInApp: openInApp[index], reloadWebView: $reloadWebView)
+                                    .tabItem {
+                                        Text(URL(string: site)?.host ?? "Web Page")
+                                    }
+                                    .tag(index)
+                            }
                         }
+                        .tabViewStyle(PageTabViewStyle())
+                        .gesture(DragGesture(minimumDistance: 20, coordinateSpace: .local)
+                            .onEnded { value in
+                                if value.translation.width < -50 {
+                                    goToNext()
+                                } else if value.translation.width > 50 {
+                                    goToPrevious()
+                                }
+                            }
+                        )
                     }
-                    .tabViewStyle(PageTabViewStyle())
                 }
 
                 VStack {
@@ -74,6 +85,18 @@ struct ContentView: View {
                 .map { $0.1 }
         } else {
             openInApp = []
+        }
+    }
+
+    private func goToNext() {
+        if currentWebViewIndex < webSites.count - 1 {
+            currentWebViewIndex += 1
+        }
+    }
+
+    private func goToPrevious() {
+        if currentWebViewIndex > 0 {
+            currentWebViewIndex -= 1
         }
     }
 }
