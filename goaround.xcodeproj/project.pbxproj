@@ -17,6 +17,7 @@
 		B694F5762C4242DD00D7B12F /* WebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B694F5752C4242DD00D7B12F /* WebView.swift */; };
 		B694F5782C4243FF00D7B12F /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B694F5772C4243FF00D7B12F /* SettingsView.swift */; };
 		B694F57A2C427B5800D7B12F /* ContentViewSwitcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = B694F5792C427B5800D7B12F /* ContentViewSwitcher.swift */; };
+		B694F57E2C44EB8900D7B12F /* WebViewContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B694F57D2C44EB8900D7B12F /* WebViewContainer.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -50,6 +51,7 @@
 		B694F5752C4242DD00D7B12F /* WebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebView.swift; sourceTree = "<group>"; };
 		B694F5772C4243FF00D7B12F /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		B694F5792C427B5800D7B12F /* ContentViewSwitcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentViewSwitcher.swift; sourceTree = "<group>"; };
+		B694F57D2C44EB8900D7B12F /* WebViewContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebViewContainer.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -107,6 +109,7 @@
 				B694F5512C42418200D7B12F /* Preview Content */,
 				B694F5772C4243FF00D7B12F /* SettingsView.swift */,
 				B694F5792C427B5800D7B12F /* ContentViewSwitcher.swift */,
+				B694F57D2C44EB8900D7B12F /* WebViewContainer.swift */,
 			);
 			path = goaround;
 			sourceTree = "<group>";
@@ -267,6 +270,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				B694F54E2C42418000D7B12F /* ContentView.swift in Sources */,
+				B694F57E2C44EB8900D7B12F /* WebViewContainer.swift in Sources */,
 				B694F5782C4243FF00D7B12F /* SettingsView.swift in Sources */,
 				B694F57A2C427B5800D7B12F /* ContentViewSwitcher.swift in Sources */,
 				B694F5762C4242DD00D7B12F /* WebView.swift in Sources */,

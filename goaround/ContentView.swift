@@ -24,11 +24,17 @@ struct ContentView: View {
                     ZStack {
                         TabView(selection: $currentWebViewIndex) {
                             ForEach(Array(webSites.enumerated()), id: \.offset) { index, site in
-                                WebView(urlString: site, openInApp: openInApp[index], reloadWebView: $reloadWebView)
-                                    .tabItem {
-                                        Text(URL(string: site)?.host ?? "Web Page")
-                                    }
-                                    .tag(index)
+                                WebViewContainer(
+                                    urlString: site,
+                                    openInApp: openInApp[index],
+                                    reloadWebView: $reloadWebView,
+                                    index: index,
+                                    currentWebViewIndex: $currentWebViewIndex
+                                )
+                                .tabItem {
+                                    Text(URL(string: site)?.host ?? "Web Page")
+                                }
+                                .tag(index)
                             }
                         }
                         .tabViewStyle(PageTabViewStyle())
