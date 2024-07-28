@@ -1,10 +1,3 @@
-//
-//  ContentView.swift
-//  goaround
-//
-//  Created by Yuki Jin on 2024/07/13.
-//　memo
-
 import SwiftUI
 
 struct ContentView: View {
@@ -16,7 +9,7 @@ struct ContentView: View {
     @State private var reloadWebView: Bool = false
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ZStack {
                 if webSites.isEmpty {
                     Text("表示するWebサイトがありません")
@@ -70,7 +63,7 @@ struct ContentView: View {
                     }
                 }
             }
-            .navigationBarTitle("", displayMode: .inline)
+            .navigationTitle("")
             .navigationBarHidden(true)
             .onAppear {
                 loadWebSites()
