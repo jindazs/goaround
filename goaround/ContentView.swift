@@ -52,7 +52,22 @@ struct ContentView: View {
                 VStack {
                     Spacer()
                     HStack {
+                        // 左下に戻るボタンを配置
+                        Button(action: {
+                            // 戻る処理を追加
+                        }) {
+                            Image(systemName: "arrowshape.turn.up.backward")
+                                .resizable()
+                                .frame(width: 30, height: 30)
+                                .padding(10)
+                                .background(Color.white.opacity(0.8))
+                                .clipShape(Circle())
+                                .shadow(radius: 10)
+                        }
+                        .padding()
+
                         Spacer()
+
                         NavigationLink(destination: SettingsView()) {
                             Image(systemName: "gearshape")
                                 .resizable()
