@@ -14,32 +14,38 @@ struct ContentView: View {
                 if webSites.isEmpty {
                     Text("表示するWebサイトがありません")
                 } else {
-                    ZStack {
-                        TabView(selection: $currentWebViewIndex) {
-                            ForEach(Array(webSites.enumerated()), id: \.offset) { index, site in
-                                WebViewContainer(
-                                    urlString: site,
-                                    openInApp: openInApp[index],
-                                    reloadWebView: $reloadWebView,
-                                    index: index,
-                                    currentWebViewIndex: $currentWebViewIndex
-                                )
-                                .tabItem {
-                                    Text(URL(string: site)?.host ?? "Web Page")
+                    GeometryReader { geometry in
+                        ZStack {
+                            TabView(selection: $currentWebViewIndex) {
+                                ForEach(Array(webSites.enumerated()), id: \.offset) { index, site in
+                                    WebViewContainer(
+                                        urlString: site,
+                                        openInApp: openInApp[index],
+                                        reloadWebView: $reloadWebView,
+                                        index: index,
+                                        currentWebViewIndex: $currentWebViewIndex
+                                    )
+                                    .padding(.bottom, geometry.size.height * 0.05) // 下部の余白を設定
+                                    .tabItem {
+                                        Text(URL(string: site)?.host ?? "Web Page")
+                                    }
+                                    .tag(index)
                                 }
-                                .tag(index)
                             }
+                            .tabViewStyle(PageTabViewStyle())
+                            .gesture(DragGesture(minimumDistance: 20, coordinateSpace: .local)
+                                .onEnded { value in
+                                    let dragStartLocation = value.startLocation.y / geometry.size.height
+                                    if dragStartLocation > 0.4 && dragStartLocation < 0.6 {
+                                        if value.translation.width < -50 {
+                                            goToNext()
+                                        } else if value.translation.width > 50 {
+                                            goToPrevious()
+                                        }
+                                    }
+                                }
+                            )
                         }
-                        .tabViewStyle(PageTabViewStyle())
-                        .gesture(DragGesture(minimumDistance: 20, coordinateSpace: .local)
-                            .onEnded { value in
-                                if value.translation.width < -50 {
-                                    goToNext()
-                                } else if value.translation.width > 50 {
-                                    goToPrevious()
-                                }
-                            }
-                        )
                     }
                 }
 
