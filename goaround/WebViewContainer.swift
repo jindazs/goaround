@@ -1,10 +1,3 @@
-//
-//  WebViewContainer.swift
-//  goaround
-//
-//  Created by Yuki Jin on 2024/07/15.
-//
-
 import SwiftUI
 import WebKit
 
@@ -20,27 +13,16 @@ struct WebViewContainer: UIViewRepresentable {
         webView.navigationDelegate = context.coordinator
         webView.uiDelegate = context.coordinator
 
-        // ダブルタップで戻る動作
-        let doubleTapGesture = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleDoubleTap(_:)))
-        doubleTapGesture.numberOfTapsRequired = 2
-        doubleTapGesture.delegate = context.coordinator
-        webView.addGestureRecognizer(doubleTapGesture)
-
-        // トリプルタップでgearshapeのダブルタップと同じ動作
-        let tripleTapGesture = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleTripleTap(_:)))
-        tripleTapGesture.numberOfTapsRequired = 3
-        tripleTapGesture.delegate = context.coordinator
-        webView.addGestureRecognizer(tripleTapGesture)
-
-        // ダブルタップとトリプルタップの競合を避ける
-        doubleTapGesture.require(toFail: tripleTapGesture)
-
         return webView
     }
 
     func updateUIView(_ uiView: WKWebView, context: Context) {
         if reloadWebView && currentWebViewIndex == index {
-            loadURL(uiView)
+            if uiView.canGoBack {
+                uiView.goBack()
+            } else {
+                loadURL(uiView)
+            }
             DispatchQueue.main.async {
                 reloadWebView = false
             }
@@ -65,24 +47,6 @@ struct WebViewContainer: UIViewRepresentable {
 
         init(_ parent: WebViewContainer) {
             self.parent = parent
-        }
-
-        @objc func handleDoubleTap(_ sender: UITapGestureRecognizer) {
-            if parent.currentWebViewIndex == parent.index, let webView = sender.view as? WKWebView {
-                if webView.canGoBack {
-                    webView.goBack()
-                }
-            }
-        }
-
-        @objc func handleTripleTap(_ sender: UITapGestureRecognizer) {
-            if parent.currentWebViewIndex == parent.index {
-                parent.reloadWebView = true
-            }
-        }
-
-        func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
-            return true
         }
 
         func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {

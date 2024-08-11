@@ -54,24 +54,25 @@ struct ContentView: View {
                     HStack {
                         // 左下に戻るボタンを配置
                         Button(action: {
-                            // 戻る処理を追加
+                            goBack()
                         }) {
                             Image(systemName: "arrowshape.turn.up.backward")
                                 .resizable()
-                                .frame(width: 30, height: 30)
+                                .frame(width: 25, height: 25)
                                 .padding(10)
                                 .background(Color.white.opacity(0.8))
                                 .clipShape(Circle())
                                 .shadow(radius: 10)
                         }
                         .padding()
+                        .offset(y: 25) // ボタンを25ポイント下げる
 
                         Spacer()
 
                         NavigationLink(destination: SettingsView()) {
                             Image(systemName: "gearshape")
                                 .resizable()
-                                .frame(width: 30, height: 30)
+                                .frame(width: 25, height: 25)
                                 .padding(10)
                                 .background(Color.white.opacity(0.8))
                                 .clipShape(Circle())
@@ -81,6 +82,7 @@ struct ContentView: View {
                                 }
                         }
                         .padding()
+                        .offset(y: 25) // ボタンを25ポイント下げる
                     }
                 }
             }
@@ -118,6 +120,11 @@ struct ContentView: View {
         if currentWebViewIndex > 0 {
             currentWebViewIndex -= 1
         }
+    }
+
+    private func goBack() {
+        // 現在表示中のWebViewに戻る動作を指示
+        reloadWebView = true // WebViewに戻るアクションを伝えるフラグを設定
     }
 }
 
