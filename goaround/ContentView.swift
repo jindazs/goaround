@@ -16,35 +16,38 @@ struct ContentView: View {
                 } else {
                     GeometryReader { geometry in
                         ZStack {
-                            TabView(selection: $currentWebViewIndex) {
-                                ForEach(Array(webSites.enumerated()), id: \.offset) { index, site in
-                                    WebViewContainer(
-                                        urlString: site,
-                                        openInApp: openInApp[index],
-                                        reloadWebView: $reloadWebView,
-                                        index: index,
-                                        currentWebViewIndex: $currentWebViewIndex
-                                    )
-                                    .padding(.bottom, geometry.size.height * 0.05) // 下部の余白を設定
-                                    .tabItem {
-                                        Text(URL(string: site)?.host ?? "Web Page")
-                                    }
-                                    .tag(index)
-                                }
+                            ForEach(Array(webSites.enumerated()), id: \.offset) { index, site in
+                                WebViewContainer(
+                                    urlString: site,
+                                    openInApp: openInApp[index],
+                                    reloadWebView: $reloadWebView,
+                                    index: index,
+                                    currentWebViewIndex: $currentWebViewIndex
+                                )
+                                .padding(.bottom, geometry.size.height * 0.05) // 下部の余白を設定
+                                .opacity(currentWebViewIndex == index ? 1 : 0)
+                                .animation(.easeInOut, value: currentWebViewIndex) // スムーズなアニメーションを適用
                             }
-                            .tabViewStyle(PageTabViewStyle())
-                            .gesture(DragGesture(minimumDistance: 20, coordinateSpace: .local)
-                                .onEnded { value in
-                                    let dragStartLocation = value.startLocation.y / geometry.size.height
-                                    if dragStartLocation > 0.4 && dragStartLocation < 0.6 {
-                                        if value.translation.width < -50 {
-                                            goToNext()
-                                        } else if value.translation.width > 50 {
+
+                            // 画面左右端からのスワイプを検出
+                            Rectangle()
+                                .fill(Color.clear)
+                                .frame(width: geometry.size.width, height: geometry.size.height)
+                                .contentShape(Rectangle()) // タップ領域をフルにする
+                                .gesture(DragGesture(minimumDistance: 10, coordinateSpace: .local)
+                                    .onEnded { value in
+                                        let threshold: CGFloat = 0.05 // 画面の5%の幅
+                                        let startX = value.startLocation.x / geometry.size.width
+
+                                        if startX < threshold {
+                                            // 左端からのスワイプ
                                             goToPrevious()
+                                        } else if startX > 1 - threshold {
+                                            // 右端からのスワイプ
+                                            goToNext()
                                         }
                                     }
-                                }
-                            )
+                                )
                         }
                     }
                 }
@@ -125,11 +128,5 @@ struct ContentView: View {
     private func goBack() {
         // 現在表示中のWebViewに戻る動作を指示
         reloadWebView = true // WebViewに戻るアクションを伝えるフラグを設定
-    }
-}
-
-struct ContentView_Previews: PreviewProvider {
-    static var previews: some View {
-        ContentView()
     }
 }
