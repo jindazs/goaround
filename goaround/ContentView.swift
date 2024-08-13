@@ -7,6 +7,7 @@ struct ContentView: View {
     @State private var openInApp: [Bool] = []
     @State private var currentWebViewIndex: Int = 0
     @State private var reloadWebView: Bool = false
+    @State private var lastTranslation: CGFloat = 0
 
     var body: some View {
         NavigationStack {
@@ -24,30 +25,77 @@ struct ContentView: View {
                                     index: index,
                                     currentWebViewIndex: $currentWebViewIndex
                                 )
-                                .padding(.bottom, geometry.size.height * 0.05) // 下部の余白を設定
+                                .padding(.bottom, geometry.size.height * 0.05)
                                 .opacity(currentWebViewIndex == index ? 1 : 0)
-                                .animation(.easeInOut, value: currentWebViewIndex) // スムーズなアニメーションを適用
+                                .animation(.easeInOut, value: currentWebViewIndex)
                             }
 
-                            // 画面左右端からのスワイプを検出
                             Rectangle()
                                 .fill(Color.clear)
                                 .frame(width: geometry.size.width, height: geometry.size.height)
-                                .contentShape(Rectangle()) // タップ領域をフルにする
+                                .contentShape(Rectangle())
                                 .gesture(DragGesture(minimumDistance: 10, coordinateSpace: .local)
                                     .onEnded { value in
-                                        let threshold: CGFloat = 0.05 // 画面の5%の幅
+                                        let threshold: CGFloat = 0.05
                                         let startX = value.startLocation.x / geometry.size.width
 
                                         if startX < threshold {
-                                            // 左端からのスワイプ
                                             goToPrevious()
                                         } else if startX > 1 - threshold {
-                                            // 右端からのスワイプ
                                             goToNext()
                                         }
                                     }
                                 )
+
+                            // ドットとジェスチャー判定部分を表示
+                            VStack {
+                                Spacer()
+                                HStack {
+                                    Spacer()
+
+                                    ZStack {
+                                        // 半透明の赤い判定領域
+                                        Rectangle()
+                                            .fill(Color.red.opacity(0.3))
+                                            .frame(width: geometry.size.width * 0.6, height: 40)
+                                            .gesture(DragGesture()
+                                                .onChanged { value in
+                                                    let dragThreshold: CGFloat = 20 // ドラッグのしきい値を20に設定
+                                                    let dragAmount = value.translation.width - lastTranslation
+
+                                                    if dragAmount < -dragThreshold {
+                                                        goToPrevious() // 関数呼び出しを逆に
+                                                        lastTranslation = value.translation.width
+                                                    } else if dragAmount > dragThreshold {
+                                                        goToNext() // 関数呼び出しを逆に
+                                                        lastTranslation = value.translation.width
+                                                    }
+                                                }
+                                                .onEnded { _ in
+                                                    lastTranslation = 0
+                                                }
+                                            )
+                                        
+                                        // ドット表示
+                                        HStack(spacing: 10) {
+                                            ForEach(0..<webSites.count, id: \.self) { index in
+                                                Circle()
+                                                    .fill(index == currentWebViewIndex ? Color.white : Color.gray.opacity(0.5))
+                                                    .frame(width: 10, height: 10)
+                                                    .onTapGesture {
+                                                        withAnimation {
+                                                            currentWebViewIndex = index
+                                                        }
+                                                    }
+                                            }
+                                        }
+                                    }
+
+                                    Spacer()
+                                }
+                                .padding(.bottom, 30)
+                                .offset(y: 35) // ドットと判定部分を35ポイント下げる
+                            }
                         }
                     }
                 }
@@ -55,7 +103,6 @@ struct ContentView: View {
                 VStack {
                     Spacer()
                     HStack {
-                        // 左下に戻るボタンを配置
                         Button(action: {
                             goBack()
                         }) {
@@ -68,7 +115,7 @@ struct ContentView: View {
                                 .shadow(radius: 10)
                         }
                         .padding()
-                        .offset(y: 25) // ボタンを25ポイント下げる
+                        .offset(y: 25)
 
                         Spacer()
 
@@ -85,7 +132,7 @@ struct ContentView: View {
                                 }
                         }
                         .padding()
-                        .offset(y: 25) // ボタンを25ポイント下げる
+                        .offset(y: 25)
                     }
                 }
             }
@@ -101,7 +148,7 @@ struct ContentView: View {
         if let decodedWebSites = try? JSONDecoder().decode([String].self, from: webSitesData) {
             webSites = decodedWebSites.filter { !$0.isEmpty }
         } else {
-            webSites = Array(repeating: "", count: 20) // 希望する上限値に変更
+            webSites = Array(repeating: "", count: 20)
         }
 
         if let decodedOpenInApp = try? JSONDecoder().decode([Bool].self, from: openInAppData) {
@@ -109,7 +156,7 @@ struct ContentView: View {
                 .filter { !$0.0.isEmpty }
                 .map { $0.1 }
         } else {
-            openInApp = Array(repeating: true, count: 20) // 希望する上限値に変更
+            openInApp = Array(repeating: true, count: 20)
         }
     }
 
@@ -126,7 +173,6 @@ struct ContentView: View {
     }
 
     private func goBack() {
-        // 現在表示中のWebViewに戻る動作を指示
-        reloadWebView = true // WebViewに戻るアクションを伝えるフラグを設定
+        reloadWebView = true
     }
 }
