@@ -17,17 +17,19 @@ struct ContentView: View {
                 } else {
                     GeometryReader { geometry in
                         ZStack {
-                            ForEach(Array(webSites.enumerated()), id: \.offset) { index, site in
-                                WebViewContainer(
-                                    urlString: site,
-                                    openInApp: openInApp[index],
-                                    reloadWebView: $reloadWebView,
-                                    index: index,
-                                    currentWebViewIndex: $currentWebViewIndex
-                                )
-                                .padding(.bottom, geometry.size.height * 0.05)
-                                .opacity(currentWebViewIndex == index ? 1 : 0)
-                                .animation(.easeInOut, value: currentWebViewIndex)
+                            if !reloadWebView {
+                                ForEach(Array(webSites.enumerated()), id: \.offset) { index, site in
+                                    WebViewContainer(
+                                        urlString: site,
+                                        openInApp: openInApp[index],
+                                        reloadWebView: $reloadWebView,
+                                        index: index,
+                                        currentWebViewIndex: $currentWebViewIndex
+                                    )
+                                    .padding(.bottom, geometry.size.height * 0.05)
+                                    .opacity(currentWebViewIndex == index ? 1 : 0)
+                                    .animation(.easeInOut, value: currentWebViewIndex)
+                                }
                             }
 
                             Rectangle()
@@ -60,14 +62,14 @@ struct ContentView: View {
                                             .frame(width: geometry.size.width * 0.6, height: 40)
                                             .gesture(DragGesture()
                                                 .onChanged { value in
-                                                    let dragThreshold: CGFloat = 20 // ドラッグのしきい値を20に設定
+                                                    let dragThreshold: CGFloat = 20
                                                     let dragAmount = value.translation.width - lastTranslation
 
                                                     if dragAmount < -dragThreshold {
-                                                        goToPrevious() // 関数呼び出しを逆に
+                                                        goToPrevious()
                                                         lastTranslation = value.translation.width
                                                     } else if dragAmount > dragThreshold {
-                                                        goToNext() // 関数呼び出しを逆に
+                                                        goToNext()
                                                         lastTranslation = value.translation.width
                                                     }
                                                 }
@@ -94,7 +96,7 @@ struct ContentView: View {
                                     Spacer()
                                 }
                                 .padding(.bottom, 30)
-                                .offset(y: 35) // ドットと判定部分を35ポイント下げる
+                                .offset(y: 35)
                             }
                         }
                     }
@@ -129,6 +131,9 @@ struct ContentView: View {
                                 .shadow(radius: 10)
                                 .onTapGesture(count: 2) {
                                     reloadWebView = true
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                        reloadWebView = false
+                                    }
                                 }
                         }
                         .padding()
