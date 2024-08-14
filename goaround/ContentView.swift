@@ -178,6 +178,12 @@ struct ContentView: View {
     }
 
     private func goBack() {
-        reloadWebView = true
+        // `reloadWebView` を変更するのではなく、`currentWebViewIndex` に基づいて現在のWebViewを特定し、そのWebViewで`goBack`メソッドを呼び出します。
+        NotificationCenter.default.post(name: .goBackInWebView, object: nil, userInfo: ["index": currentWebViewIndex])
     }
+}
+
+// 通知用の拡張
+extension Notification.Name {
+    static let goBackInWebView = Notification.Name("goBackInWebView")
 }

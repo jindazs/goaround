@@ -13,6 +13,15 @@ struct WebViewContainer: UIViewRepresentable {
         webView.navigationDelegate = context.coordinator
         webView.uiDelegate = context.coordinator
 
+        // 通知を受け取ってgoBackを実行
+        NotificationCenter.default.addObserver(forName: .goBackInWebView, object: nil, queue: .main) { notification in
+            if let userInfo = notification.userInfo, let notifiedIndex = userInfo["index"] as? Int, notifiedIndex == self.index {
+                if webView.canGoBack {
+                    webView.goBack()
+                }
+            }
+        }
+
         return webView
     }
 
