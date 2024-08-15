@@ -56,9 +56,9 @@ struct ContentView: View {
                                     Spacer()
 
                                     ZStack {
-                                        // 半透明の赤い判定領域
+                                        // 半透明の黒い判定領域
                                         Rectangle()
-                                            .fill(Color.red.opacity(0.3))
+                                            .fill(Color.black.opacity(0.01))
                                             .frame(width: geometry.size.width * 0.6, height: 40)
                                             .gesture(DragGesture()
                                                 .onChanged { value in
@@ -77,7 +77,13 @@ struct ContentView: View {
                                                     lastTranslation = 0
                                                 }
                                             )
-                                        
+                                            .onTapGesture(count: 2) {
+                                                reloadWebView = true
+                                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                                    reloadWebView = false
+                                                }
+                                            }
+
                                         // ドット表示
                                         HStack(spacing: 10) {
                                             ForEach(0..<webSites.count, id: \.self) { index in
@@ -129,12 +135,6 @@ struct ContentView: View {
                                 .background(Color.white.opacity(0.8))
                                 .clipShape(Circle())
                                 .shadow(radius: 10)
-                                .onTapGesture(count: 2) {
-                                    reloadWebView = true
-                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                                        reloadWebView = false
-                                    }
-                                }
                         }
                         .padding()
                         .offset(y: 25)
@@ -178,7 +178,6 @@ struct ContentView: View {
     }
 
     private func goBack() {
-        // `reloadWebView` を変更するのではなく、`currentWebViewIndex` に基づいて現在のWebViewを特定し、そのWebViewで`goBack`メソッドを呼び出します。
         NotificationCenter.default.post(name: .goBackInWebView, object: nil, userInfo: ["index": currentWebViewIndex])
     }
 }
