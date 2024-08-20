@@ -10,13 +10,16 @@ struct WebViewContainer: UIViewRepresentable {
 
     func makeUIView(context: Context) -> WKWebView {
         let configuration = WKWebViewConfiguration()
+
         // 自動再生をオフにする設定
-        configuration.mediaTypesRequiringUserActionForPlayback = [.video, .audio]
-        
-        let webView = WKWebView()
+        //configuration.mediaTypesRequiringUserActionForPlayback = [.video, .audio]
+        configuration.allowsInlineMediaPlayback = true // インライン再生を許可
+
+        // WKWebViewのインスタンスを作成
+        let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.navigationDelegate = context.coordinator
         webView.uiDelegate = context.coordinator
-                
+        
         // 通知を受け取ってgoBackを実行
         NotificationCenter.default.addObserver(forName: .goBackInWebView, object: nil, queue: .main) { notification in
             if let userInfo = notification.userInfo, let notifiedIndex = userInfo["index"] as? Int, notifiedIndex == self.index {
