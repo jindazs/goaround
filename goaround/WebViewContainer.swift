@@ -7,24 +7,27 @@ struct WebViewContainer: UIViewRepresentable {
     @Binding var reloadWebView: Bool
     let index: Int
     @Binding var currentWebViewIndex: Int
+    let totalWebViews: Int  // 追加: 全WebViewの数
 
     func makeUIView(context: Context) -> WKWebView {
         let configuration = WKWebViewConfiguration()
 
         // 自動再生をオフにする設定
-        //configuration.mediaTypesRequiringUserActionForPlayback = [.video, .audio]
-        configuration.allowsInlineMediaPlayback = true // インライン再生を許可
+        configuration.mediaTypesRequiringUserActionForPlayback = [.video, .audio]
+        configuration.allowsInlineMediaPlayback = true
 
-        // WKWebViewのインスタンスを作成
         let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.navigationDelegate = context.coordinator
         webView.uiDelegate = context.coordinator
-        
+
         // 通知を受け取ってgoBackを実行
         NotificationCenter.default.addObserver(forName: .goBackInWebView, object: nil, queue: .main) { notification in
             if let userInfo = notification.userInfo, let notifiedIndex = userInfo["index"] as? Int, notifiedIndex == self.index {
                 if webView.canGoBack {
                     webView.goBack()
+                } else {
+                    // 戻るページがない場合にgoToPrevious()を実行
+                    goToPrevious()
                 }
             }
         }
@@ -55,6 +58,15 @@ struct WebViewContainer: UIViewRepresentable {
         if let url = URL(string: urlString) {
             let request = URLRequest(url: url)
             webView.load(request)
+        }
+    }
+
+    // goToPrevious関数を修正: 0番目の場合は一番右のWebViewに遷移
+    private func goToPrevious() {
+        if currentWebViewIndex > 0 {
+            currentWebViewIndex -= 1
+        } else {
+            currentWebViewIndex = totalWebViews - 1 // 一番右のWebViewに遷移
         }
     }
 

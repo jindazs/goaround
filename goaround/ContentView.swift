@@ -31,7 +31,8 @@ struct ContentView: View {
                                                     openInApp: openInApp[index],
                                                     reloadWebView: $reloadWebView,
                                                     index: index,
-                                                    currentWebViewIndex: $currentWebViewIndex
+                                                    currentWebViewIndex: $currentWebViewIndex,
+                                                    totalWebViews: webSites.count // ここで総数を渡す
                                                 )
                                                 //.padding(.bottom, 40)
                                                 .opacity(currentWebViewIndex == index ? 1 : 0)
@@ -57,7 +58,7 @@ struct ContentView: View {
                                     .contentShape(Rectangle())
                                     .gesture(DragGesture(minimumDistance: 10, coordinateSpace: .local)
                                         .onEnded { value in
-                                            let threshold: CGFloat = 0.05
+                                            let threshold: CGFloat = 0.1
                                             let startX = value.startLocation.x / geometry.size.width
 
                                             if startX < threshold {
@@ -82,7 +83,7 @@ struct ContentView: View {
                                                 .frame(width: geometry.size.width * 0.6, height: 40)
                                                 .gesture(DragGesture()
                                                     .onChanged { value in
-                                                        let dragThreshold: CGFloat = 20
+                                                        let dragThreshold: CGFloat = 16
                                                         let dragAmount = value.translation.width - lastTranslation
 
                                                         if dragAmount < -dragThreshold {
@@ -211,6 +212,7 @@ struct ContentView: View {
     }
 
     private func goBack() {
+        // 通知を発行
         NotificationCenter.default.post(name: .goBackInWebView, object: nil, userInfo: ["index": currentWebViewIndex])
     }
 }
