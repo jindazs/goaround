@@ -34,12 +34,11 @@ struct ContentView: View {
                                                     currentWebViewIndex: $currentWebViewIndex,
                                                     totalWebViews: webSites.count // ここで総数を渡す
                                                 )
-                                                //.padding(.bottom, 40)
-                                                .opacity(currentWebViewIndex == index ? 1 : 0)
-                                                .animation(.easeInOut, value: currentWebViewIndex)
+                                                .offset(x: currentWebViewIndex == index ? 0 : geometry.size.width * (index > currentWebViewIndex ? 1 : -1))
+                                                .opacity(currentWebViewIndex == index || index == currentWebViewIndex - 1 || index == currentWebViewIndex + 1 ? 1 : 0)
+                                                .zIndex(Double(index == currentWebViewIndex ? 1 : 0)) // 表示順序を制御
+                                                .animation(.easeOut(duration:0.1), value: currentWebViewIndex)
                                                 .frame(width: geometry.size.width - 4, height: geometry.size.height-40)
-                                                //.position(x: 0 + geometry.safeAreaInsets.leading)
-                                                //.offset(x:-2)
                                                 .clipShape(RoundedCorners(radius: 20, corners: [.topRight, .bottomRight]))
                                                 
                                                 Spacer()
@@ -210,7 +209,16 @@ struct ContentView: View {
             currentWebViewIndex -= 1
         }
     }
-
+    
+    // goToPrevious関数を修正: 0番目の場合は一番右のWebViewに遷移
+    private func goToPreviousBySwipe() {
+        if currentWebViewIndex > 0 {
+            currentWebViewIndex -= 1
+        } else {
+            currentWebViewIndex = webSites.count
+        }
+    }
+    
     private func goBack() {
         // 通知を発行
         NotificationCenter.default.post(name: .goBackInWebView, object: nil, userInfo: ["index": currentWebViewIndex])

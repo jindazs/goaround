@@ -25,9 +25,6 @@ struct WebViewContainer: UIViewRepresentable {
             if let userInfo = notification.userInfo, let notifiedIndex = userInfo["index"] as? Int, notifiedIndex == self.index {
                 if webView.canGoBack {
                     webView.goBack()
-                } else {
-                    // 戻るページがない場合にgoToPrevious()を実行
-                    goToPrevious()
                 }
             }
         }
@@ -58,15 +55,6 @@ struct WebViewContainer: UIViewRepresentable {
         if let url = URL(string: urlString) {
             let request = URLRequest(url: url)
             webView.load(request)
-        }
-    }
-
-    // goToPrevious関数を修正: 0番目の場合は一番右のWebViewに遷移
-    private func goToPrevious() {
-        if currentWebViewIndex > 0 {
-            currentWebViewIndex -= 1
-        } else {
-            currentWebViewIndex = totalWebViews - 1 // 一番右のWebViewに遷移
         }
     }
 
