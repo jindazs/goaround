@@ -240,3 +240,10 @@ struct RoundedCorners: Shape {
 extension Notification.Name {
     static let goBackInWebView = Notification.Name("goBackInWebView")
 }
+
+// プレビュー用のコードを追加
+struct ContentView_Previews: PreviewProvider {
+    static var previews: some View {
+        ContentView()
+    }
+}
