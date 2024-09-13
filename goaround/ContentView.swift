@@ -11,10 +11,9 @@ struct ContentView: View {
 
     var body: some View {
             
-            
             NavigationStack {
                 ZStack {
-                    Color(red: 0.15, green: 0.15, blue: 0.15)
+                    Color(red: 0.15, green: 0.15, blue: 0.35)
                         .edgesIgnoringSafeArea(.all)
                     
                     if webSites.isEmpty {
@@ -38,18 +37,14 @@ struct ContentView: View {
                                                 .opacity(currentWebViewIndex == index || index == currentWebViewIndex - 1 || index == currentWebViewIndex + 1 ? 1 : 0)
                                                 .zIndex(Double(index == currentWebViewIndex ? 1 : 0)) // 表示順序を制御
                                                 .animation(.easeOut(duration:0.1), value: currentWebViewIndex)
-                                                .frame(width: geometry.size.width - 4, height: geometry.size.height-40)
-                                                .clipShape(RoundedCorners(radius: 20, corners: [.topRight, .bottomRight]))
-                                                
-                                                Spacer()
+                                                //.frame(width: geometry.size.width)
+                                                //.clipShape(RoundedCorners(radius: 20, corners: [.topRight, .topLeft]))
+                                                //.edgesIgnoringSafeArea(.top)
                                             }
                                             
-                                            Spacer()
                                         }
                                     }
                                 }
-       
-                                
 
                                 Rectangle()
                                     .fill(Color.clear)
@@ -72,57 +67,78 @@ struct ContentView: View {
                                 // ドットとジェスチャー判定部分を表示
                                 VStack {
                                     Spacer()
-                                    HStack {
-                                        Spacer()
-
-                                        ZStack {
-                                            // 半透明の黒い判定領域
-                                            Rectangle()
-                                                .fill(Color.black.opacity(0.01))
-                                                .frame(width: geometry.size.width * 0.6, height: 40)
-                                                .gesture(DragGesture()
-                                                    .onChanged { value in
-                                                        let dragThreshold: CGFloat = 16
-                                                        let dragAmount = value.translation.width - lastTranslation
-
-                                                        if dragAmount < -dragThreshold {
-                                                            goToPrevious()
-                                                            lastTranslation = value.translation.width
-                                                        } else if dragAmount > dragThreshold {
-                                                            goToNext()
-                                                            lastTranslation = value.translation.width
-                                                        }
-                                                    }
-                                                    .onEnded { _ in
-                                                        lastTranslation = 0
-                                                    }
-                                                )
-                                                .onTapGesture(count: 2) {
+                                    
+                                    HStack(spacing: 0) {
+                                        
+                                        Rectangle()
+                                            .fill(Color(red: 0.15, green: 0.15, blue: 0.35))
+                                            .frame(width: geometry.size.width*0.02, height: 100)
+                                        
+                                        // 半透明の黒い判定領域
+                                        //Rectangle()
+                                        //    .fill(Color.clear)
+                                        Color.clear
+                                            .contentShape(Rectangle())
+                                            .frame(width: geometry.size.width*0.96, height: 100)
+                                            .gesture(DragGesture()
+                                                .onEnded { value in
+                                                    let minimumDistance: CGFloat = 50 // フリックと判定する最小距離
+                                                    let minimumSpeed: CGFloat = 50   // フリックと判定する最小速度
+                                                    
+                                                    let translation = value.translation
+                                                    let velocity = value.predictedEndTranslation
+                                                    
+                                                    if abs(translation.width) > minimumDistance && abs(velocity.width) > minimumSpeed {
+                                                                if translation.width > 0 {
+                                                                    goToPreviousBySwipe()
+                                                                    lastTranslation = value.translation.width
+                                                                } else {
+                                                                    goToNextBySwipe()
+                                                                    lastTranslation = value.translation.width
+                                                                }
+                                                            }
+                                                }
+                                            )
+                                            /*
+                                            .onTapGesture(count: 2) {
+                                                reloadWebView = true
+                                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                                    reloadWebView = false
+                                                }
+                                            }
+                                            */
+                                            .highPriorityGesture(TapGesture(count: 2)
+                                                .onEnded{
                                                     reloadWebView = true
                                                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                                                         reloadWebView = false
                                                     }
                                                 }
-
-                                            // ドット表示
-                                            HStack(spacing: 10) {
-                                                ForEach(0..<webSites.count, id: \.self) { index in
-                                                    Circle()
-                                                        .fill(index == currentWebViewIndex ? Color.white : Color.gray.opacity(0.5))
-                                                        .frame(width: 10, height: 10)
-                                                        .onTapGesture {
-                                                            withAnimation {
-                                                                currentWebViewIndex = index
-                                                            }
-                                                        }
-                                                }
-                                            }
-                                        }
-
-                                        Spacer()
+                                            )
+                                        
+                                        Rectangle()
+                                            .fill(Color(red: 0.15, green: 0.15, blue: 0.35))
+                                            .frame(width: geometry.size.width*0.02, height: 100)
+                                        
                                     }
-                                    .padding(.bottom, 30)
-                                    .offset(y: 35)
+                                    .offset(y: 20)
+                                    
+                                    
+                                
+                                    // ドット表示
+                                    HStack(spacing: 10) {
+                                        ForEach(0..<webSites.count, id: \.self) { index in
+                                            Circle()
+                                                .fill(index == currentWebViewIndex ? Color.white : Color.white.opacity(0.5))
+                                                .frame(width: 10, height: 10)
+                                                .offset(y: 20)
+                                                .onTapGesture {
+                                                    withAnimation {
+                                                        currentWebViewIndex = index
+                                                    }
+                                                }
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -144,6 +160,14 @@ struct ContentView: View {
                             }
                             .padding()
                             .offset(y: 25)
+                            .highPriorityGesture(TapGesture(count: 2)
+                                .onEnded{
+                                    reloadWebView = true
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                        reloadWebView = false
+                                    }
+                                }
+                            )
 
                             Spacer()
 
