@@ -37,22 +37,25 @@ struct ContentView: View {
                                                 .opacity(currentWebViewIndex == index || index == currentWebViewIndex - 1 || index == currentWebViewIndex + 1 ? 1 : 0)
                                                 .zIndex(Double(index == currentWebViewIndex ? 1 : 0)) // 表示順序を制御
                                                 .animation(.easeOut(duration:0.1), value: currentWebViewIndex)
-                                                //.frame(width: geometry.size.width)
+                                                .frame(height: geometry.size.height-26)
                                                 //.clipShape(RoundedCorners(radius: 20, corners: [.topRight, .topLeft]))
                                                 //.edgesIgnoringSafeArea(.top)
+                                                
+                                                Spacer()
+                                                
                                             }
                                             
                                         }
                                     }
                                 }
-
+                                /*
                                 Rectangle()
                                     .fill(Color.clear)
                                     .frame(width: geometry.size.width, height: geometry.size.height)
                                     .contentShape(Rectangle())
                                     .gesture(DragGesture(minimumDistance: 10, coordinateSpace: .local)
                                         .onEnded { value in
-                                            let threshold: CGFloat = 0.1
+                                            let threshold: CGFloat = 0.2
                                             let startX = value.startLocation.x / geometry.size.width
 
                                             if startX < threshold {
@@ -63,23 +66,20 @@ struct ContentView: View {
                                             }
                                         }
                                     )
+                                 */
 
                                 // ドットとジェスチャー判定部分を表示
                                 VStack {
                                     Spacer()
                                     
                                     HStack(spacing: 0) {
-                                        
-                                        Rectangle()
-                                            .fill(Color(red: 0.15, green: 0.15, blue: 0.35))
-                                            .frame(width: geometry.size.width*0.02, height: 100)
-                                        
+                                                                                
                                         // 半透明の黒い判定領域
                                         //Rectangle()
                                         //    .fill(Color.clear)
                                         Color.clear
                                             .contentShape(Rectangle())
-                                            .frame(width: geometry.size.width*0.96, height: 100)
+                                            .frame(width: geometry.size.width, height: 50)
                                             .gesture(DragGesture()
                                                 .onEnded { value in
                                                     let minimumDistance: CGFloat = 50 // フリックと判定する最小距離
@@ -115,11 +115,6 @@ struct ContentView: View {
                                                     }
                                                 }
                                             )
-                                        
-                                        Rectangle()
-                                            .fill(Color(red: 0.15, green: 0.15, blue: 0.35))
-                                            .frame(width: geometry.size.width*0.02, height: 100)
-                                        
                                     }
                                     .offset(y: 20)
                                     
@@ -131,7 +126,7 @@ struct ContentView: View {
                                             Circle()
                                                 .fill(index == currentWebViewIndex ? Color.white : Color.white.opacity(0.5))
                                                 .frame(width: 10, height: 10)
-                                                .offset(y: 20)
+                                                //.offset(y: 20)
                                                 .onTapGesture {
                                                     withAnimation {
                                                         currentWebViewIndex = index
@@ -152,14 +147,14 @@ struct ContentView: View {
                             }) {
                                 Image(systemName: "arrowshape.turn.up.backward")
                                     .resizable()
-                                    .frame(width: 25, height: 25)
+                                    .frame(width: 15, height: 15)
                                     .padding(10)
                                     .background(Color.white.opacity(0.8))
                                     .clipShape(Circle())
                                     .shadow(radius: 10)
                             }
                             .padding()
-                            .offset(y: 25)
+                            .offset(y: 32)
                             .highPriorityGesture(TapGesture(count: 2)
                                 .onEnded{
                                     reloadWebView = true
@@ -174,14 +169,14 @@ struct ContentView: View {
                             NavigationLink(destination: SettingsView()) {
                                 Image(systemName: "gearshape")
                                     .resizable()
-                                    .frame(width: 25, height: 25)
+                                    .frame(width: 15, height: 15)
                                     .padding(10)
                                     .background(Color.white.opacity(0.8))
                                     .clipShape(Circle())
                                     .shadow(radius: 10)
                             }
                             .padding()
-                            .offset(y: 25)
+                            .offset(y: 32)
                         }
                     }
                 }
