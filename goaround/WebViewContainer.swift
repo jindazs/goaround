@@ -12,10 +12,16 @@ struct WebViewContainer: UIViewRepresentable {
     func makeUIView(context: Context) -> WKWebView {
         let configuration = WKWebViewConfiguration()
         
+        // 動画・音声の自動再生をオフにする設定
+        configuration.mediaTypesRequiringUserActionForPlayback = [.video, .audio]
+        
         let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.navigationDelegate = context.coordinator
         webView.uiDelegate = context.coordinator
-        
+
+        // ユーザーエージェントをiPad用に設定
+        webView.customUserAgent = "Mozilla/5.0 (iPad; CPU OS 15_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0 Mobile/15E148 Safari/604.1"
+
         // 通知リスナーを追加
         NotificationCenter.default.addObserver(forName: .goBackInWebView, object: nil, queue: .main) { [weak webView] notification in
             if let userInfo = notification.userInfo, let notifiedIndex = userInfo["index"] as? Int, notifiedIndex == self.index {
@@ -76,49 +82,38 @@ struct WebViewContainer: UIViewRepresentable {
 
             switch gesture.state {
             case .began:
-                // スワイプ開始時に元の位置を保存
                 originalPosition = webView.frame.origin
                 transitioning = false
 
             case .changed:
-                // スワイプ中はWebViewの位置を更新して視覚的に移動を示す
                 if translation.x > 0, webView.canGoBack {
                     if let originalPosition = originalPosition {
-                        let newX = max(translation.x + originalPosition.x, 0) // 左にスライドしないように制約
+                        let newX = max(translation.x + originalPosition.x, 0)
                         webView.frame.origin.x = newX
                     }
                 } else if translation.x < 0, webView.canGoForward {
                     if let originalPosition = originalPosition {
-                        let newX = min(translation.x + originalPosition.x, 0) // 右にスライドしないように制約
+                        let newX = min(translation.x + originalPosition.x, 0)
                         webView.frame.origin.x = newX
                     }
                 }
 
             case .ended:
                 let velocity = gesture.velocity(in: webView)
-
                 if translation.x > 100 || velocity.x > 500 {
-                    // ある程度スワイプしたら「戻る」
                     if webView.canGoBack {
                         UIView.animate(withDuration: 0.1, animations: {
                             webView.frame.origin.x = webView.frame.size.width
                         }, completion: { _ in
                             webView.goBack()
                             webView.frame.origin.x = 0
-                            /*
-                            UIView.animate(withDuration: 0.3) {
-                                webView.frame.origin.x = 0
-                            }
-                            */
                         })
                     } else {
-                        // 戻れるページがない場合、元に戻す
                         UIView.animate(withDuration: 0.1) {
                             webView.frame.origin.x = 0
                         }
                     }
                 } else if translation.x < -100 || velocity.x < -500 {
-                    // ある程度スワイプしたら「進む」
                     if webView.canGoForward {
                         UIView.animate(withDuration: 0.1, animations: {
                             webView.frame.origin.x = -webView.frame.size.width
@@ -129,13 +124,11 @@ struct WebViewContainer: UIViewRepresentable {
                             }
                         })
                     } else {
-                        // 進めるページがない場合、元に戻す
                         UIView.animate(withDuration: 0.1) {
                             webView.frame.origin.x = 0
                         }
                     }
                 } else {
-                    // スワイプ距離が不十分だった場合、元に戻す
                     UIView.animate(withDuration: 0.1) {
                         webView.frame.origin.x = 0
                     }
