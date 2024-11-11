@@ -78,7 +78,7 @@ struct WebViewContainer: UIViewRepresentable {
         @objc func handleEdgeSwipeGesture(_ gesture: UIPanGestureRecognizer) {
             guard let webView = gesture.view as? WKWebView else { return }
             let translation = gesture.translation(in: webView)
-            let progress = translation.x / webView.frame.width
+            _ = translation.x / webView.frame.width
 
             switch gesture.state {
             case .began:

@@ -48,35 +48,12 @@ struct ContentView: View {
                                         }
                                     }
                                 }
-                                /*
-                                Rectangle()
-                                    .fill(Color.clear)
-                                    .frame(width: geometry.size.width, height: geometry.size.height)
-                                    .contentShape(Rectangle())
-                                    .gesture(DragGesture(minimumDistance: 10, coordinateSpace: .local)
-                                        .onEnded { value in
-                                            let threshold: CGFloat = 0.2
-                                            let startX = value.startLocation.x / geometry.size.width
-
-                                            if startX < threshold {
-                                                //goToPrevious()
-                                                goBack()
-                                            } else if startX > 1 - threshold {
-                                                goToNextBySwipe()
-                                            }
-                                        }
-                                    )
-                                 */
 
                                 // ドットとジェスチャー判定部分を表示
                                 VStack {
                                     Spacer()
                                     
                                     HStack(spacing: 0) {
-                                                                                
-                                        // 半透明の黒い判定領域
-                                        //Rectangle()
-                                        //    .fill(Color.clear)
                                         Color.clear
                                             .contentShape(Rectangle())
                                             .frame(width: geometry.size.width, height: 50)
@@ -99,14 +76,6 @@ struct ContentView: View {
                                                             }
                                                 }
                                             )
-                                            /*
-                                            .onTapGesture(count: 2) {
-                                                reloadWebView = true
-                                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                                                    reloadWebView = false
-                                                }
-                                            }
-                                            */
                                             .highPriorityGesture(TapGesture(count: 2)
                                                 .onEnded{
                                                     reloadWebView = true
@@ -117,8 +86,6 @@ struct ContentView: View {
                                             )
                                     }
                                     .offset(y: 20)
-                                    
-                                    
                                 
                                     // ドット表示
                                     HStack(spacing: 10) {
