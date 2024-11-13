@@ -8,7 +8,7 @@ struct WebViewContainer: UIViewRepresentable {
     let index: Int
     @Binding var currentWebViewIndex: Int
     let totalWebViews: Int // WebViewの総数
-    
+
     func makeUIView(context: Context) -> WKWebView {
         let configuration = WKWebViewConfiguration()
         
@@ -34,6 +34,26 @@ struct WebViewContainer: UIViewRepresentable {
             }
         }
         
+        // ページダウンの通知リスナーを追加
+        NotificationCenter.default.addObserver(forName: .pageDownInWebView, object: nil, queue: .main) { [weak webView] notification in
+            if let userInfo = notification.userInfo, let notifiedIndex = userInfo["index"] as? Int, notifiedIndex == self.index {
+                if let scrollView = webView?.scrollView {
+                    let contentOffset = scrollView.contentOffset
+                    let newOffset = CGPoint(x: contentOffset.x, y: min(contentOffset.y + scrollView.bounds.height, scrollView.contentSize.height - scrollView.bounds.height))
+                    
+                    // すぐにアニメーションを始める
+                    UIView.animate(withDuration: 0.1, // アニメーションを短くして即時反応する感覚を与える
+                                   delay: 0,          // 遅延をゼロにすることで、タップしてからすぐにスクロールを始める
+                                   options: [.curveEaseOut],
+                                   animations: {
+                                       scrollView.setContentOffset(newOffset, animated: false)
+                                   }, completion: nil)
+                }
+            }
+        }
+
+
+
         // エッジスワイプジェスチャーの追加
         let edgeSwipeGesture = UIPanGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleEdgeSwipeGesture(_:)))
         webView.addGestureRecognizer(edgeSwipeGesture)
@@ -80,7 +100,6 @@ struct WebViewContainer: UIViewRepresentable {
         @objc func handleEdgeSwipeGesture(_ gesture: UIPanGestureRecognizer) {
             guard let webView = gesture.view as? WKWebView else { return }
             let translation = gesture.translation(in: webView)
-            _ = translation.x / webView.frame.width
 
             switch gesture.state {
             case .began:

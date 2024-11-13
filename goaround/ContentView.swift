@@ -19,19 +19,19 @@ struct ContentView: View {
                     Text("表示するWebサイトがありません")
                 } else {
                     GeometryReader { geometry in
-                            if !reloadWebView {
-                                ForEach(Array(webSites.enumerated()), id: \.offset) { index, site in
-                                    WebViewItem(
-                                        site: site,
-                                        index: index,
-                                        openInApp: openInApp[index],
-                                        geometrySize: geometry.size,
-                                        currentWebViewIndex: $currentWebViewIndex,
-                                        reloadWebView: $reloadWebView,
-                                        totalWebViews: webSites.count
-                                    )
-                                }
+                        if !reloadWebView {
+                            ForEach(Array(webSites.enumerated()), id: \.offset) { index, site in
+                                WebViewItem(
+                                    site: site,
+                                    index: index,
+                                    openInApp: openInApp[index],
+                                    geometrySize: geometry.size,
+                                    currentWebViewIndex: $currentWebViewIndex,
+                                    reloadWebView: $reloadWebView,
+                                    totalWebViews: webSites.count
+                                )
                             }
+                        }
                     }
                     .edgesIgnoringSafeArea(.bottom)
                 }
@@ -70,6 +70,11 @@ struct ContentView: View {
                                 reloadWebView = false
                             }
                         }
+                    )
+                    .gesture(TapGesture(count: 1)
+                        .onEnded {
+                            pageDownCurrentWebView() // ページダウンボタン
+                            }
                     )
                     
                     Spacer()
@@ -185,7 +190,7 @@ struct ContentView: View {
     private struct viewChanger: View {
         var body: some View {
             Capsule()
-                .fill(Color(red: 0.15, green: 0.15, blue: 0.35).opacity(0.1))
+                .fill(Color(red: 0.15, green: 0.15, blue: 0.35).opacity(0.3))
                 .frame(width: 50, height: 150)
         }
     }
@@ -234,35 +239,18 @@ struct ContentView: View {
         }
     }
     
+    private func pageDownCurrentWebView() {
+        NotificationCenter.default.post(name: .pageDownInWebView, object: nil, userInfo: ["index": currentWebViewIndex])
+    }
+    
     private func goBack() {
         // 通知を発行
         NotificationCenter.default.post(name: .goBackInWebView, object: nil, userInfo: ["index": currentWebViewIndex])
     }
 }
 
-// 角を丸めるためのカスタム形状
-struct RoundedCorners: Shape {
-    var radius: CGFloat = .infinity
-    var corners: UIRectCorner = .allCorners
-
-    func path(in rect: CGRect) -> Path {
-        let path = UIBezierPath(
-            roundedRect: rect,
-            byRoundingCorners: corners,
-            cornerRadii: CGSize(width: radius, height: radius)
-        )
-        return Path(path.cgPath)
-    }
-}
-
 // 通知用の拡張
 extension Notification.Name {
+    static let pageDownInWebView = Notification.Name("pageDownInWebView")
     static let goBackInWebView = Notification.Name("goBackInWebView")
-}
-
-// プレビュー用のコードを追加
-struct ContentView_Previews: PreviewProvider {
-    static var previews: some View {
-        ContentView()
-    }
 }
