@@ -33,6 +33,7 @@ struct ContentView: View {
                                 }
                             }
                     }
+                    .edgesIgnoringSafeArea(.bottom)
                 }
 
                 VStack {
@@ -49,11 +50,15 @@ struct ContentView: View {
                                 .offset(y: -10)
                         }
                     }
+                    
                     Spacer()
+                    
                     HStack(spacing: 0) {
                         viewChanger()
                             .offset(x: -25)
+                    
                         Spacer()
+                        
                         viewChanger()
                             .offset(x: 25)
                     }
@@ -77,7 +82,7 @@ struct ContentView: View {
                                 .resizable()
                                 .frame(width: 15, height: 15)
                                 .padding(10)
-                                .background(Color.white.opacity(0.8))
+                                .background(Color.white)
                                 .clipShape(Circle())
                                 .shadow(radius: 10)
                         }
@@ -99,7 +104,7 @@ struct ContentView: View {
                                 .resizable()
                                 .frame(width: 15, height: 15)
                                 .padding(10)
-                                .background(Color.white.opacity(0.8))
+                                .background(Color.white)
                                 .clipShape(Circle())
                                 .shadow(radius: 10)
                         }
@@ -180,7 +185,7 @@ struct ContentView: View {
     private struct viewChanger: View {
         var body: some View {
             Capsule()
-                .fill(Color.blue.opacity(0.2))
+                .fill(Color(red: 0.15, green: 0.15, blue: 0.35).opacity(0.1))
                 .frame(width: 50, height: 150)
         }
     }
