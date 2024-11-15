@@ -12,132 +12,109 @@ struct ContentView: View {
     var body: some View {
         NavigationStack {
             ZStack {
+                Color(red: 0.15, green: 0.15, blue: 0.35)
+                    .edgesIgnoringSafeArea(.all)
+                
                 if webSites.isEmpty {
                     Text("表示するWebサイトがありません")
                 } else {
                     GeometryReader { geometry in
-                        ZStack {
-                            if !reloadWebView {
-                                ForEach(Array(webSites.enumerated()), id: \.offset) { index, site in
-                                    WebViewContainer(
-                                        urlString: site,
-                                        openInApp: openInApp[index],
-                                        reloadWebView: $reloadWebView,
-                                        index: index,
-                                        currentWebViewIndex: $currentWebViewIndex
-                                    )
-                                    .padding(.bottom, geometry.size.height * 0.05)
-                                    .opacity(currentWebViewIndex == index ? 1 : 0)
-                                    .animation(.easeInOut, value: currentWebViewIndex)
-                                }
-                            }
-
-                            Rectangle()
-                                .fill(Color.clear)
-                                .frame(width: geometry.size.width, height: geometry.size.height)
-                                .contentShape(Rectangle())
-                                .gesture(DragGesture(minimumDistance: 10, coordinateSpace: .local)
-                                    .onEnded { value in
-                                        let threshold: CGFloat = 0.05
-                                        let startX = value.startLocation.x / geometry.size.width
-
-                                        if startX < threshold {
-                                            goToPrevious()
-                                        } else if startX > 1 - threshold {
-                                            goToNext()
-                                        }
-                                    }
+                        if !reloadWebView {
+                            ForEach(Array(webSites.enumerated()), id: \.offset) { index, site in
+                                WebViewItem(
+                                    site: site,
+                                    index: index,
+                                    openInApp: openInApp[index],
+                                    geometrySize: geometry.size,
+                                    currentWebViewIndex: $currentWebViewIndex,
+                                    reloadWebView: $reloadWebView,
+                                    totalWebViews: webSites.count
                                 )
-
-                            // ドットとジェスチャー判定部分を表示
-                            VStack {
-                                Spacer()
-                                HStack {
-                                    Spacer()
-
-                                    ZStack {
-                                        // 半透明の黒い判定領域
-                                        Rectangle()
-                                            .fill(Color.black.opacity(0.01))
-                                            .frame(width: geometry.size.width * 0.6, height: 40)
-                                            .gesture(DragGesture()
-                                                .onChanged { value in
-                                                    let dragThreshold: CGFloat = 20
-                                                    let dragAmount = value.translation.width - lastTranslation
-
-                                                    if dragAmount < -dragThreshold {
-                                                        goToPrevious()
-                                                        lastTranslation = value.translation.width
-                                                    } else if dragAmount > dragThreshold {
-                                                        goToNext()
-                                                        lastTranslation = value.translation.width
-                                                    }
-                                                }
-                                                .onEnded { _ in
-                                                    lastTranslation = 0
-                                                }
-                                            )
-                                            .onTapGesture(count: 2) {
-                                                reloadWebView = true
-                                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                                                    reloadWebView = false
-                                                }
-                                            }
-
-                                        // ドット表示
-                                        HStack(spacing: 10) {
-                                            ForEach(0..<webSites.count, id: \.self) { index in
-                                                Circle()
-                                                    .fill(index == currentWebViewIndex ? Color.white : Color.gray.opacity(0.5))
-                                                    .frame(width: 10, height: 10)
-                                                    .onTapGesture {
-                                                        withAnimation {
-                                                            currentWebViewIndex = index
-                                                        }
-                                                    }
-                                            }
-                                        }
-                                    }
-
-                                    Spacer()
-                                }
-                                .padding(.bottom, 30)
-                                .offset(y: 35)
                             }
                         }
                     }
+                    .edgesIgnoringSafeArea(.bottom)
                 }
 
                 VStack {
+                    HStack(spacing: 10) {
+                        ForEach(0..<webSites.count, id: \.self) { index in
+                            Circle()
+                                .fill(index == currentWebViewIndex ? Color.white : Color.white.opacity(0.5))
+                                .frame(width: 10, height: 10)
+                                .onTapGesture {
+                                    withAnimation {
+                                        currentWebViewIndex = index
+                                    }
+                                }
+                                .offset(y: -10)
+                        }
+                    }
+                    
                     Spacer()
+                    
+                    HStack(spacing: 0) {
+                        viewChanger()
+                            .offset(x: -25)
+                    
+                        Spacer()
+                        
+                        viewChanger()
+                            .offset(x: 25)
+                    }
+                    .gesture(dragGesture)
+                    .highPriorityGesture(TapGesture(count: 2)
+                        .onEnded {
+                            reloadWebView = true
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                reloadWebView = false
+                            }
+                        }
+                    )
+                    .gesture(TapGesture(count: 1)
+                        .onEnded {
+                            pageDownCurrentWebView() // ページダウンボタン
+                            }
+                    )
+                    
+                    Spacer()
+                    
                     HStack {
                         Button(action: {
                             goBack()
                         }) {
                             Image(systemName: "arrowshape.turn.up.backward")
                                 .resizable()
-                                .frame(width: 25, height: 25)
+                                .frame(width: 15, height: 15)
                                 .padding(10)
-                                .background(Color.white.opacity(0.8))
+                                .background(Color.white)
                                 .clipShape(Circle())
                                 .shadow(radius: 10)
                         }
                         .padding()
-                        .offset(y: 25)
+                        .offset(y: 32)
+                        .highPriorityGesture(TapGesture(count: 2)
+                            .onEnded{
+                                reloadWebView = true
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                    reloadWebView = false
+                                }
+                            }
+                        )
 
                         Spacer()
 
                         NavigationLink(destination: SettingsView()) {
                             Image(systemName: "gearshape")
                                 .resizable()
-                                .frame(width: 25, height: 25)
+                                .frame(width: 15, height: 15)
                                 .padding(10)
-                                .background(Color.white.opacity(0.8))
+                                .background(Color.white)
                                 .clipShape(Circle())
                                 .shadow(radius: 10)
                         }
                         .padding()
-                        .offset(y: 25)
+                        .offset(y: 32)
                     }
                 }
             }
@@ -146,6 +123,75 @@ struct ContentView: View {
             .onAppear {
                 loadWebSites()
             }
+        }
+    }
+
+    // WebViewContainerをラップしたサブビュー
+    private struct WebViewItem: View {
+        let site: String
+        let index: Int
+        let openInApp: Bool
+        let geometrySize: CGSize
+        @Binding var currentWebViewIndex: Int
+        @Binding var reloadWebView: Bool
+        let totalWebViews: Int
+
+        var body: some View {
+            WebViewContainer(
+                urlString: site,
+                openInApp: openInApp,
+                reloadWebView: $reloadWebView,
+                index: index,
+                currentWebViewIndex: $currentWebViewIndex,
+                totalWebViews: totalWebViews
+            )
+            .offset(y: offsetValue)
+            .opacity(opacityValue)
+            .zIndex(zIndexValue)
+            .animation(.easeOut(duration: 0.1), value: currentWebViewIndex)
+            .frame(height: geometrySize.height)
+        }
+
+        private var offsetValue: CGFloat {
+            currentWebViewIndex == index ? 0 : geometrySize.height * (index > currentWebViewIndex ? 1.2 : -1.2)
+        }
+
+        private var opacityValue: Double {
+            (currentWebViewIndex == index || index == currentWebViewIndex - 1 || index == currentWebViewIndex + 1) ? 1 : 0
+        }
+
+        private var zIndexValue: Double {
+            Double(index == currentWebViewIndex ? 1 : 0)
+        }
+    }
+
+    // 共通のジェスチャを返すプロパティ
+    private var dragGesture: some Gesture {
+        DragGesture()
+            .onEnded { value in
+                let minimumDistance: CGFloat = 50 // フリックと判定する最小距離
+                let minimumSpeed: CGFloat = 50   // フリックと判定する最小速度
+                
+                let translation = value.translation
+                let velocity = value.predictedEndTranslation
+                
+                if abs(translation.height) > minimumDistance && abs(velocity.height) > minimumSpeed {
+                    if translation.height > 0 {
+                        goToNextBySwipe()
+                        lastTranslation = value.translation.height
+                    } else {
+                        goToPreviousBySwipe()
+                        lastTranslation = value.translation.height
+                    }
+                }
+            }
+    }
+
+    private struct viewChanger: View {
+        var body: some View {
+            Capsule()
+                .fill(Color(red: 0.15, green: 0.15, blue: 0.35).opacity(0.3))
+                .frame(width: 50, height: 150)
         }
     }
 
@@ -170,19 +216,41 @@ struct ContentView: View {
             currentWebViewIndex += 1
         }
     }
+    
+    private func goToNextBySwipe() {
+        if currentWebViewIndex < webSites.count - 1 {
+            currentWebViewIndex += 1
+        } else {
+            currentWebViewIndex = 0
+        }
+    }
 
     private func goToPrevious() {
         if currentWebViewIndex > 0 {
             currentWebViewIndex -= 1
         }
     }
-
+    
+    private func goToPreviousBySwipe() {
+        if currentWebViewIndex > 0 {
+            currentWebViewIndex -= 1
+        } else {
+            currentWebViewIndex = webSites.count - 1
+        }
+    }
+    
+    private func pageDownCurrentWebView() {
+        NotificationCenter.default.post(name: .pageDownInWebView, object: nil, userInfo: ["index": currentWebViewIndex])
+    }
+    
     private func goBack() {
+        // 通知を発行
         NotificationCenter.default.post(name: .goBackInWebView, object: nil, userInfo: ["index": currentWebViewIndex])
     }
 }
 
 // 通知用の拡張
 extension Notification.Name {
+    static let pageDownInWebView = Notification.Name("pageDownInWebView")
     static let goBackInWebView = Notification.Name("goBackInWebView")
 }
