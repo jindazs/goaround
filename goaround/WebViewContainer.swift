@@ -8,7 +8,7 @@ struct WebViewContainer: UIViewRepresentable {
     let index: Int
     @Binding var currentWebViewIndex: Int
     let totalWebViews: Int // WebViewの総数
-
+    
     func makeUIView(context: Context) -> WKWebView {
         let configuration = WKWebViewConfiguration()
         
@@ -19,10 +19,17 @@ struct WebViewContainer: UIViewRepresentable {
         webView.navigationDelegate = context.coordinator
         webView.uiDelegate = context.coordinator
 
-        if UIDevice.current.userInterfaceIdiom == .pad {
-            // ユーザーエージェントをiPad用に設定
+        // デバイスの種類に応じてユーザーエージェントを設定
+        if UIDevice.current.userInterfaceIdiom == .phone {
+            // iPhone用のユーザーエージェント
+            webView.customUserAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1"
+        } else {
+            // iPad用のユーザーエージェント
             webView.customUserAgent = "Mozilla/5.0 (iPad; CPU OS 15_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0 Mobile/15E148 Safari/604.1"
         }
+
+        // スワイプで進む・戻るを有効にする
+        webView.allowsBackForwardNavigationGestures = true
 
         // 通知リスナーを追加
         NotificationCenter.default.addObserver(forName: .goBackInWebView, object: nil, queue: .main) { [weak webView] notification in
@@ -33,30 +40,6 @@ struct WebViewContainer: UIViewRepresentable {
                 }
             }
         }
-        
-        // ページダウンの通知リスナーを追加
-        NotificationCenter.default.addObserver(forName: .pageDownInWebView, object: nil, queue: .main) { [weak webView] notification in
-            if let userInfo = notification.userInfo, let notifiedIndex = userInfo["index"] as? Int, notifiedIndex == self.index {
-                if let scrollView = webView?.scrollView {
-                    let contentOffset = scrollView.contentOffset
-                    let newOffset = CGPoint(x: contentOffset.x, y: min(contentOffset.y + scrollView.bounds.height, scrollView.contentSize.height - scrollView.bounds.height))
-                    
-                    // すぐにアニメーションを始める
-                    UIView.animate(withDuration: 0.1, // アニメーションを短くして即時反応する感覚を与える
-                                   delay: 0,          // 遅延をゼロにすることで、タップしてからすぐにスクロールを始める
-                                   options: [.curveEaseOut],
-                                   animations: {
-                                       scrollView.setContentOffset(newOffset, animated: false)
-                                   }, completion: nil)
-                }
-            }
-        }
-
-
-
-        // エッジスワイプジェスチャーの追加
-        let edgeSwipeGesture = UIPanGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleEdgeSwipeGesture(_:)))
-        webView.addGestureRecognizer(edgeSwipeGesture)
         
         return webView
     }
@@ -87,79 +70,11 @@ struct WebViewContainer: UIViewRepresentable {
         }
     }
     
-    class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate, UIGestureRecognizerDelegate {
+    class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate {
         var parent: WebViewContainer
-        var originalPosition: CGPoint?
-        var transitioning = false
 
         init(_ parent: WebViewContainer) {
             self.parent = parent
-        }
-
-        // エッジスワイプジェスチャーのハンドラー
-        @objc func handleEdgeSwipeGesture(_ gesture: UIPanGestureRecognizer) {
-            guard let webView = gesture.view as? WKWebView else { return }
-            let translation = gesture.translation(in: webView)
-
-            switch gesture.state {
-            case .began:
-                originalPosition = webView.frame.origin
-                transitioning = false
-
-            case .changed:
-                if translation.x > 0, webView.canGoBack {
-                    if let originalPosition = originalPosition {
-                        let newX = max(translation.x + originalPosition.x, 0)
-                        webView.frame.origin.x = newX
-                    }
-                } else if translation.x < 0, webView.canGoForward {
-                    if let originalPosition = originalPosition {
-                        let newX = min(translation.x + originalPosition.x, 0)
-                        webView.frame.origin.x = newX
-                    }
-                }
-
-            case .ended:
-                let velocity = gesture.velocity(in: webView)
-                if translation.x > 100 || velocity.x > 500 {
-                    if webView.canGoBack {
-                        UIView.animate(withDuration: 0.1, animations: {
-                            webView.frame.origin.x = webView.frame.size.width
-                        }, completion: { _ in
-                            webView.goBack()
-                            webView.frame.origin.x = 0
-                        })
-                    } else {
-                        UIView.animate(withDuration: 0.1) {
-                            webView.frame.origin.x = 0
-                        }
-                    }
-                } else if translation.x < -100 || velocity.x < -500 {
-                    if webView.canGoForward {
-                        UIView.animate(withDuration: 0.1, animations: {
-                            webView.frame.origin.x = -webView.frame.size.width
-                        }, completion: { _ in
-                            webView.goForward()
-                            UIView.animate(withDuration: 0.1) {
-                                webView.frame.origin.x = 0
-                            }
-                        })
-                    } else {
-                        UIView.animate(withDuration: 0.1) {
-                            webView.frame.origin.x = 0
-                        }
-                    }
-                } else {
-                    UIView.animate(withDuration: 0.1) {
-                        webView.frame.origin.x = 0
-                    }
-                }
-                
-                transitioning = false
-                
-            default:
-                break
-            }
         }
 
         func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
