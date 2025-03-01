@@ -190,8 +190,12 @@ struct ContentView: View {
     private struct viewChanger: View {
         var body: some View {
             Capsule()
-                .fill(Color(red: 0.15, green: 0.15, blue: 0.35).opacity(0.3))
+                .fill(Color(red: 0.15, green: 0.15, blue: 0.35).opacity(0.2))
                 .frame(width: 50, height: 150)
+                .overlay(
+                    Capsule()
+                        .stroke(Color.white.opacity(0.5), lineWidth: 0.5) // 白い縁取りを追加
+                )
         }
     }
 
