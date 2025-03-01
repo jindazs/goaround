@@ -14,6 +14,8 @@ struct WebViewContainer: UIViewRepresentable {
         
         // 動画・音声の自動再生をオフにする設定
         configuration.mediaTypesRequiringUserActionForPlayback = [.video, .audio]
+        // インライン再生を許可する設定を追加
+        configuration.allowsInlineMediaPlayback = true
         
         let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.navigationDelegate = context.coordinator

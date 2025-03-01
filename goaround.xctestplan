@@ -1,0 +1,37 @@
+{
+  "configurations" : [
+    {
+      "id" : "AE8F1199-0B4F-4252-91E1-BA9E18EE88D7",
+      "name" : "Test Scheme Action",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "targetForVariableExpansion" : {
+      "containerPath" : "container:goaround.xcodeproj",
+      "identifier" : "B694F5472C42418000D7B12F",
+      "name" : "goaround"
+    }
+  },
+  "testTargets" : [
+    {
+      "parallelizable" : true,
+      "target" : {
+        "containerPath" : "container:goaround.xcodeproj",
+        "identifier" : "B694F5572C42418200D7B12F",
+        "name" : "goaroundTests"
+      }
+    },
+    {
+      "parallelizable" : true,
+      "target" : {
+        "containerPath" : "container:goaround.xcodeproj",
+        "identifier" : "B694F5612C42418200D7B12F",
+        "name" : "goaroundUITests"
+      }
+    }
+  ],
+  "version" : 1
+}
