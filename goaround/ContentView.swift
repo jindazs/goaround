@@ -206,8 +206,12 @@ struct ContentView: View {
             openInApp = zip(webSites, decodedOpenInApp)
                 .filter { !$0.0.isEmpty }
                 .map { $0.1 }
+
+            if openInApp.count < webSites.count {
+                openInApp.append(contentsOf: Array(repeating: true, count: webSites.count - openInApp.count))
+            }
         } else {
-            openInApp = Array(repeating: true, count: 20)
+            openInApp = Array(repeating: true, count: webSites.count)
         }
     }
 
