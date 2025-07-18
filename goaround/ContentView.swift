@@ -7,7 +7,6 @@ struct ContentView: View {
     @State private var openInApp: [Bool] = []
     @State private var currentWebViewIndex: Int = 0
     @State private var reloadWebView: Bool = false
-    @State private var lastTranslation: CGFloat = 0
 
     var body: some View {
         NavigationStack {
@@ -178,10 +177,8 @@ struct ContentView: View {
                 if abs(translation.height) > minimumDistance && abs(velocity.height) > minimumSpeed {
                     if translation.height > 0 {
                         goToNextBySwipe()
-                        lastTranslation = value.translation.height
                     } else {
                         goToPreviousBySwipe()
-                        lastTranslation = value.translation.height
                     }
                 }
             }
@@ -203,7 +200,7 @@ struct ContentView: View {
         if let decodedWebSites = try? JSONDecoder().decode([String].self, from: webSitesData) {
             webSites = decodedWebSites.filter { !$0.isEmpty }
         } else {
-            webSites = Array(repeating: "", count: 20)
+            webSites = Array(repeating: "", count: Constants.maxWebSites)
         }
 
         if let decodedOpenInApp = try? JSONDecoder().decode([Bool].self, from: openInAppData) {
@@ -211,16 +208,10 @@ struct ContentView: View {
                 .filter { !$0.0.isEmpty }
                 .map { $0.1 }
         } else {
-            openInApp = Array(repeating: true, count: 20)
+            openInApp = Array(repeating: true, count: Constants.maxWebSites)
         }
     }
 
-    private func goToNext() {
-        if currentWebViewIndex < webSites.count - 1 {
-            currentWebViewIndex += 1
-        }
-    }
-    
     private func goToNextBySwipe() {
         if currentWebViewIndex < webSites.count - 1 {
             currentWebViewIndex += 1
@@ -229,12 +220,6 @@ struct ContentView: View {
         }
     }
 
-    private func goToPrevious() {
-        if currentWebViewIndex > 0 {
-            currentWebViewIndex -= 1
-        }
-    }
-    
     private func goToPreviousBySwipe() {
         if currentWebViewIndex > 0 {
             currentWebViewIndex -= 1

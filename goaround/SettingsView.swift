@@ -16,8 +16,8 @@ struct SettingsView: View {
 
     init() {
         // 新しい上限値に応じて、デフォルトのWebサイトとIn-App設定を変更します。
-        let defaultWebSites = Array(repeating: "", count: 20) // ここで20を希望する上限値に変更
-        let defaultOpenInApp = Array(repeating: true, count: 20)
+        let defaultWebSites = Array(repeating: "", count: Constants.maxWebSites) // ここで20を希望する上限値に変更
+        let defaultOpenInApp = Array(repeating: true, count: Constants.maxWebSites)
         
         _webSites = State(initialValue: defaultWebSites)
         _openInApp = State(initialValue: defaultOpenInApp)
