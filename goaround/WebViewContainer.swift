@@ -33,16 +33,8 @@ struct WebViewContainer: UIViewRepresentable {
         // スワイプで進む・戻るを有効にする
         webView.allowsBackForwardNavigationGestures = true
 
-        // 通知リスナーを追加
-        NotificationCenter.default.addObserver(forName: .goBackInWebView, object: nil, queue: .main) { [weak webView] notification in
-            if let userInfo = notification.userInfo, let notifiedIndex = userInfo["index"] as? Int, notifiedIndex == self.index {
-                // 現在のWebViewが対象の場合のみ戻る操作を実行
-                if webView?.canGoBack == true {
-                    webView?.goBack()
-                }
-            }
-        }
-        
+        context.coordinator.configure(webView: webView, index: index)
+
         return webView
     }
     
@@ -74,9 +66,41 @@ struct WebViewContainer: UIViewRepresentable {
     
     class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate {
         var parent: WebViewContainer
+        weak var webView: WKWebView?
+        var observers: [NSObjectProtocol] = []
 
         init(_ parent: WebViewContainer) {
             self.parent = parent
+        }
+
+        func configure(webView: WKWebView, index: Int) {
+            self.webView = webView
+            // go back observer
+            let backObs = NotificationCenter.default.addObserver(forName: .goBackInWebView, object: nil, queue: .main) { [weak self] notification in
+                guard let self = self, let webView = self.webView else { return }
+                if let userInfo = notification.userInfo, let notifiedIndex = userInfo["index"] as? Int, notifiedIndex == index {
+                    if webView.canGoBack {
+                        webView.goBack()
+                    }
+                }
+            }
+            observers.append(backObs)
+
+            let pageObs = NotificationCenter.default.addObserver(forName: .pageDownInWebView, object: nil, queue: .main) { [weak self] notification in
+                guard let self = self, let webView = self.webView else { return }
+                if let userInfo = notification.userInfo, let notifiedIndex = userInfo["index"] as? Int, notifiedIndex == index {
+                    let scrollView = webView.scrollView
+                    let offset = CGPoint(x: 0, y: scrollView.contentOffset.y + scrollView.bounds.height)
+                    scrollView.setContentOffset(offset, animated: true)
+                }
+            }
+            observers.append(pageObs)
+        }
+
+        deinit {
+            for obs in observers {
+                NotificationCenter.default.removeObserver(obs)
+            }
         }
 
         func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
