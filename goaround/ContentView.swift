@@ -7,7 +7,7 @@ struct ContentView: View {
     @State private var openInApp: [Bool] = []
     @State private var currentWebViewIndex: Int = 0
     @State private var reloadWebView: Bool = false
-    @State private var showMenu: Bool = false
+    @State private var showSettings: Bool = false
 
     var body: some View {
         NavigationStack {
@@ -55,11 +55,17 @@ struct ContentView: View {
                     HStack(spacing: 0) {
                         viewChanger()
                             .offset(x: -25)
-                    
+                            .simultaneousGesture(LongPressGesture().onEnded { _ in
+                                goBack()
+                            })
+
                         Spacer()
-                        
+
                         viewChanger()
                             .offset(x: 25)
+                            .simultaneousGesture(LongPressGesture().onEnded { _ in
+                                showSettings = true
+                            })
                     }
                     .gesture(dragGesture)
                     .highPriorityGesture(TapGesture(count: 2)
@@ -77,57 +83,15 @@ struct ContentView: View {
                     )
                     
                     Spacer()
-
-                    ZStack(alignment: .bottomTrailing) {
-                        if showMenu {
-                            VStack(spacing: 10) {
-                                Button(action: {
-                                    goBack()
-                                    showMenu = false
-                                }) {
-                                    Image(systemName: "arrowshape.turn.up.backward")
-                                        .resizable()
-                                        .frame(width: 15, height: 15)
-                                        .padding(10)
-                                        .background(Color.white.opacity(0.7))
-                                        .clipShape(Circle())
-                                        .shadow(radius: 10)
-                                }
-                                NavigationLink(destination: SettingsView()) {
-                                    Image(systemName: "gearshape")
-                                        .resizable()
-                                        .frame(width: 15, height: 15)
-                                        .padding(10)
-                                        .background(Color.white.opacity(0.7))
-                                        .clipShape(Circle())
-                                        .shadow(radius: 10)
-                                }
-                            }
-                            .padding(.bottom, 40)
-                            .transition(.scale)
-                        }
-
-                        Button(action: {
-                            withAnimation {
-                                showMenu.toggle()
-                            }
-                        }) {
-                            Image(systemName: showMenu ? "xmark" : "line.3.horizontal")
-                                .resizable()
-                                .frame(width: 20, height: 15)
-                                .padding(10)
-                                .background(Color.white.opacity(0.7))
-                                .clipShape(Circle())
-                                .shadow(radius: 10)
-                        }
-                        .padding(.trailing, 20)
-                    }
                 }
             }
             .navigationTitle("")
             .navigationBarHidden(true)
             .onAppear {
                 loadWebSites()
+            }
+            .sheet(isPresented: $showSettings) {
+                SettingsView()
             }
         }
     }
