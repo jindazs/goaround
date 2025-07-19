@@ -7,6 +7,8 @@ struct ContentView: View {
     @State private var openInApp: [Bool] = []
     @State private var currentWebViewIndex: Int = 0
     @State private var reloadWebView: Bool = false
+    @State private var showMenu: Bool = false
+    @Environment(\.safeAreaInsets) private var safeAreaInsets
 
     var body: some View {
         NavigationStack {
@@ -32,7 +34,6 @@ struct ContentView: View {
                             }
                         }
                     }
-                    .edgesIgnoringSafeArea(.bottom)
                 }
 
                 VStack {
@@ -77,45 +78,54 @@ struct ContentView: View {
                     )
                     
                     Spacer()
-                    
-                    HStack {
-                        Button(action: {
-                            goBack()
-                        }) {
-                            Image(systemName: "arrowshape.turn.up.backward")
-                                .resizable()
-                                .frame(width: 15, height: 15)
-                                .padding(10)
-                                .background(Color.white)
-                                .clipShape(Circle())
-                                .shadow(radius: 10)
-                        }
-                        .padding()
-                        .offset(y: 32)
-                        .highPriorityGesture(TapGesture(count: 2)
-                            .onEnded{
-                                reloadWebView = true
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                                    reloadWebView = false
+
+                    ZStack(alignment: .bottomTrailing) {
+                        if showMenu {
+                            VStack(spacing: 10) {
+                                Button(action: {
+                                    goBack()
+                                    showMenu = false
+                                }) {
+                                    Image(systemName: "arrowshape.turn.up.backward")
+                                        .resizable()
+                                        .frame(width: 15, height: 15)
+                                        .padding(10)
+                                        .background(Color.white.opacity(0.7))
+                                        .clipShape(Circle())
+                                        .shadow(radius: 10)
+                                }
+                                NavigationLink(destination: SettingsView()) {
+                                    Image(systemName: "gearshape")
+                                        .resizable()
+                                        .frame(width: 15, height: 15)
+                                        .padding(10)
+                                        .background(Color.white.opacity(0.7))
+                                        .clipShape(Circle())
+                                        .shadow(radius: 10)
                                 }
                             }
-                        )
+                            .padding(.bottom, 40)
+                            .transition(.scale)
+                        }
 
-                        Spacer()
-
-                        NavigationLink(destination: SettingsView()) {
-                            Image(systemName: "gearshape")
+                        Button(action: {
+                            withAnimation {
+                                showMenu.toggle()
+                            }
+                        }) {
+                            Image(systemName: showMenu ? "xmark" : "line.3.horizontal")
                                 .resizable()
-                                .frame(width: 15, height: 15)
+                                .frame(width: 20, height: 15)
                                 .padding(10)
-                                .background(Color.white)
+                                .background(Color.white.opacity(0.7))
                                 .clipShape(Circle())
                                 .shadow(radius: 10)
                         }
-                        .padding()
-                        .offset(y: 32)
+                        .padding(.trailing, 20)
+                        .padding(.bottom, safeAreaInsets.bottom + 20)
                     }
                 }
+                .padding(.bottom, safeAreaInsets.bottom)
             }
             .navigationTitle("")
             .navigationBarHidden(true)
