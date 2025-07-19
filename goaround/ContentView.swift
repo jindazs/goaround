@@ -8,6 +8,7 @@ struct ContentView: View {
     @State private var currentWebViewIndex: Int = 0
     @State private var reloadWebView: Bool = false
     @State private var showMenu: Bool = false
+    @Environment(\.safeAreaInsets) private var safeAreaInsets
 
     var body: some View {
         NavigationStack {
@@ -33,7 +34,6 @@ struct ContentView: View {
                             }
                         }
                     }
-                    .edgesIgnoringSafeArea(.bottom)
                 }
 
                 VStack {
@@ -90,7 +90,7 @@ struct ContentView: View {
                                         .resizable()
                                         .frame(width: 15, height: 15)
                                         .padding(10)
-                                        .background(Color.white)
+                                        .background(Color.white.opacity(0.7))
                                         .clipShape(Circle())
                                         .shadow(radius: 10)
                                 }
@@ -99,12 +99,12 @@ struct ContentView: View {
                                         .resizable()
                                         .frame(width: 15, height: 15)
                                         .padding(10)
-                                        .background(Color.white)
+                                        .background(Color.white.opacity(0.7))
                                         .clipShape(Circle())
                                         .shadow(radius: 10)
                                 }
                             }
-                            .padding(.bottom, 70)
+                            .padding(.bottom, 40)
                             .transition(.scale)
                         }
 
@@ -117,13 +117,15 @@ struct ContentView: View {
                                 .resizable()
                                 .frame(width: 20, height: 15)
                                 .padding(10)
-                                .background(Color.white)
+                                .background(Color.white.opacity(0.7))
                                 .clipShape(Circle())
                                 .shadow(radius: 10)
                         }
-                        .padding()
+                        .padding(.trailing, 20)
+                        .padding(.bottom, safeAreaInsets.bottom + 20)
                     }
                 }
+                .padding(.bottom, safeAreaInsets.bottom)
             }
             .navigationTitle("")
             .navigationBarHidden(true)
