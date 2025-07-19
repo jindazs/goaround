@@ -26,7 +26,7 @@ struct SettingsView: View {
     var body: some View {
         NavigationView {
             List {
-                ForEach(0..<webSites.count, id: \.self) { index in
+                ForEach(Array(webSites.indices), id: \.self) { index in
                     HStack {
                         VStack(alignment: .leading) {
                             Text("Webサイト \(index + 1):")
@@ -39,14 +39,18 @@ struct SettingsView: View {
                             .labelsHidden()
                     }
                 }
+                .onMove(perform: moveWebSite)
             }
             .navigationTitle("設定")
-            .navigationBarItems(trailing: Button("保存") {
-                saveWebSites()
-                isSettingsCompleted = true
-            })
+            .toolbar {
+                EditButton()
+            }
             .onAppear {
                 loadWebSites()
+            }
+            .onDisappear {
+                saveWebSites()
+                isSettingsCompleted = true
             }
         }
     }
@@ -67,6 +71,12 @@ struct SettingsView: View {
         if let openInApp = try? JSONDecoder().decode([Bool].self, from: openInAppData) {
             self.openInApp = openInApp
         }
+    }
+
+    private func moveWebSite(from source: IndexSet, to destination: Int) {
+        webSites.move(fromOffsets: source, toOffset: destination)
+        openInApp.move(fromOffsets: source, toOffset: destination)
+        saveWebSites()
     }
 }
 
