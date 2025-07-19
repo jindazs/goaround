@@ -8,12 +8,11 @@ struct ContentView: View {
     @State private var currentWebViewIndex: Int = 0
     @State private var reloadWebView: Bool = false
     @State private var showMenu: Bool = false
-    @Environment(\.safeAreaInsets) private var safeAreaInsets
 
     var body: some View {
         NavigationStack {
             ZStack {
-                Color(red: 0.15, green: 0.15, blue: 0.35)
+                Color(red: 0.1, green: 0.1, blue: 0.1)
                     .edgesIgnoringSafeArea(.all)
                 
                 if webSites.isEmpty {
@@ -122,10 +121,8 @@ struct ContentView: View {
                                 .shadow(radius: 10)
                         }
                         .padding(.trailing, 20)
-                        .padding(.bottom, safeAreaInsets.bottom + 20)
                     }
                 }
-                .padding(.bottom, safeAreaInsets.bottom)
             }
             .navigationTitle("")
             .navigationBarHidden(true)
