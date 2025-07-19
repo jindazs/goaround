@@ -200,7 +200,7 @@ struct ContentView: View {
         if let decodedWebSites = try? JSONDecoder().decode([String].self, from: webSitesData) {
             webSites = decodedWebSites.filter { !$0.isEmpty }
         } else {
-            webSites = Array(repeating: "", count: Constants.maxWebSites)
+            webSites = []
         }
 
         if let decodedOpenInApp = try? JSONDecoder().decode([Bool].self, from: openInAppData) {
@@ -208,7 +208,7 @@ struct ContentView: View {
                 .filter { !$0.0.isEmpty }
                 .map { $0.1 }
         } else {
-            openInApp = Array(repeating: true, count: Constants.maxWebSites)
+            openInApp = Array(repeating: true, count: webSites.count)
         }
     }
 
