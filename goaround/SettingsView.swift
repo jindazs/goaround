@@ -8,37 +8,50 @@
 import SwiftUI
 
 struct SettingsView: View {
-    @AppStorage("webSites") private var webSitesData: Data = Data()
-    @AppStorage("openInApp") private var openInAppData: Data = Data()
+    @AppStorage("webSiteSettings") private var webSiteSettingsData: Data = Data()
     @AppStorage("isSettingsCompleted") private var isSettingsCompleted: Bool = false
-    @State private var webSites: [String]
-    @State private var openInApp: [Bool]
+    @State private var webSiteSettings: [WebSiteSetting]
+    @Environment(\.editMode) private var editMode
+
+    struct WebSiteSetting: Identifiable, Codable {
+        let id: UUID
+        var url: String
+        var openInApp: Bool
+        init(id: UUID = UUID(), url: String, openInApp: Bool) {
+            self.id = id
+            self.url = url
+            self.openInApp = openInApp
+        }
+    }
 
     init() {
-        // 新しい上限値に応じて、デフォルトのWebサイトとIn-App設定を変更します。
-        let defaultWebSites = Array(repeating: "", count: Constants.maxWebSites) // ここで20を希望する上限値に変更
-        let defaultOpenInApp = Array(repeating: true, count: Constants.maxWebSites)
-        
-        _webSites = State(initialValue: defaultWebSites)
-        _openInApp = State(initialValue: defaultOpenInApp)
+        let defaultSettings = Array(
+            repeating: WebSiteSetting(url: "", openInApp: true),
+            count: Constants.maxWebSites
+        )
+        let savedData = UserDefaults.standard.data(forKey: "webSiteSettings") ?? Data()
+        let decoded: [WebSiteSetting]
+        if let saved = try? JSONDecoder().decode([WebSiteSetting].self, from: savedData) {
+            decoded = saved
+        } else {
+            decoded = defaultSettings
+        }
+        _webSiteSettings = State(initialValue: decoded)
     }
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             List {
-                ForEach(Array(webSites.indices), id: \.self) { index in
+                ForEach(webSiteSettings.indices, id: \.self) { index in
                     VStack {
+                        TextField("URLを入力", text: $webSiteSettings[index].url)
+                            .textFieldStyle(RoundedBorderTextFieldStyle())
+                            .autocapitalization(.none)
+                            .disableAutocorrection(true)
                         HStack {
-                            Text("\(index + 1):")
-                            TextField("URLを入力", text: $webSites[index])
-                                .textFieldStyle(RoundedBorderTextFieldStyle())
-                                .autocapitalization(.none)
-                                .disableAutocorrection(true)
-                        }
-                        HStack{
                             Spacer()
-                            Text("Open In-App")                                .foregroundColor(.gray)
-                            Toggle("In-App", isOn: $openInApp[index])
+                            Text("Open In-App").foregroundColor(.gray)
+                            Toggle("", isOn: $webSiteSettings[index].openInApp)
                                 .labelsHidden()
                         }
                     }
@@ -49,38 +62,26 @@ struct SettingsView: View {
             .toolbar {
                 EditButton()
             }
-            .onAppear {
-                loadWebSites()
+            .onChange(of: editMode?.wrappedValue) { oldValue, newValue in
+                if newValue == .inactive {
+                    saveSettings()
+                }
             }
             .onDisappear {
-                saveWebSites()
+                saveSettings()
                 isSettingsCompleted = true
             }
         }
     }
 
-    private func saveWebSites() {
-        if let data = try? JSONEncoder().encode(webSites) {
-            webSitesData = data
-        }
-        if let data = try? JSONEncoder().encode(openInApp) {
-            openInAppData = data
-        }
-    }
-
-    private func loadWebSites() {
-        if let webSites = try? JSONDecoder().decode([String].self, from: webSitesData) {
-            self.webSites = webSites
-        }
-        if let openInApp = try? JSONDecoder().decode([Bool].self, from: openInAppData) {
-            self.openInApp = openInApp
-        }
-    }
-
     private func moveWebSite(from source: IndexSet, to destination: Int) {
-        webSites.move(fromOffsets: source, toOffset: destination)
-        openInApp.move(fromOffsets: source, toOffset: destination)
-        saveWebSites()
+        webSiteSettings.move(fromOffsets: source, toOffset: destination)
+    }
+
+    private func saveSettings() {
+        if let data = try? JSONEncoder().encode(webSiteSettings) {
+            webSiteSettingsData = data
+        }
     }
 }
 
