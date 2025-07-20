@@ -27,16 +27,20 @@ struct SettingsView: View {
         NavigationView {
             List {
                 ForEach(Array(webSites.indices), id: \.self) { index in
-                    HStack {
-                        VStack(alignment: .leading) {
-                            Text("Webサイト \(index + 1):")
+                    VStack {
+                        HStack {
+                            Text("\(index + 1):")
                             TextField("URLを入力", text: $webSites[index])
                                 .textFieldStyle(RoundedBorderTextFieldStyle())
                                 .autocapitalization(.none)
                                 .disableAutocorrection(true)
                         }
-                        Toggle("In-App", isOn: $openInApp[index])
-                            .labelsHidden()
+                        HStack{
+                            Spacer()
+                            Text("Open In-App")                                .foregroundColor(.gray)
+                            Toggle("In-App", isOn: $openInApp[index])
+                                .labelsHidden()
+                        }
                     }
                 }
                 .onMove(perform: moveWebSite)
