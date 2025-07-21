@@ -7,12 +7,12 @@ struct ContentView: View {
     @State private var openInApp: [Bool] = []
     @State private var currentWebViewIndex: Int = 0
     @State private var reloadWebView: Bool = false
-    @State private var lastTranslation: CGFloat = 0
+    @State private var showSettings: Bool = false
 
     var body: some View {
         NavigationStack {
             ZStack {
-                Color(red: 0.15, green: 0.15, blue: 0.35)
+                Color(red: 0.1, green: 0.1, blue: 0.1)
                     .edgesIgnoringSafeArea(.all)
                 
                 if webSites.isEmpty {
@@ -33,7 +33,6 @@ struct ContentView: View {
                             }
                         }
                     }
-                    .edgesIgnoringSafeArea(.bottom)
                 }
 
                 VStack {
@@ -56,11 +55,17 @@ struct ContentView: View {
                     HStack(spacing: 0) {
                         viewChanger()
                             .offset(x: -25)
-                    
+                            .simultaneousGesture(LongPressGesture().onEnded { _ in
+                                goBack()
+                            })
+
                         Spacer()
-                        
+
                         viewChanger()
                             .offset(x: 25)
+                            .simultaneousGesture(LongPressGesture().onEnded { _ in
+                                showSettings = true
+                            })
                     }
                     .gesture(dragGesture)
                     .highPriorityGesture(TapGesture(count: 2)
@@ -78,50 +83,23 @@ struct ContentView: View {
                     )
                     
                     Spacer()
-                    
-                    HStack {
-                        Button(action: {
-                            goBack()
-                        }) {
-                            Image(systemName: "arrowshape.turn.up.backward")
-                                .resizable()
-                                .frame(width: 15, height: 15)
-                                .padding(10)
-                                .background(Color.white)
-                                .clipShape(Circle())
-                                .shadow(radius: 10)
-                        }
-                        .padding()
-                        .offset(y: 32)
-                        .highPriorityGesture(TapGesture(count: 2)
-                            .onEnded{
-                                reloadWebView = true
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                                    reloadWebView = false
-                                }
-                            }
-                        )
-
-                        Spacer()
-
-                        NavigationLink(destination: SettingsView()) {
-                            Image(systemName: "gearshape")
-                                .resizable()
-                                .frame(width: 15, height: 15)
-                                .padding(10)
-                                .background(Color.white)
-                                .clipShape(Circle())
-                                .shadow(radius: 10)
-                        }
-                        .padding()
-                        .offset(y: 32)
-                    }
                 }
             }
             .navigationTitle("")
             .navigationBarHidden(true)
             .onAppear {
                 loadWebSites()
+            }
+            .onChange(of: webSitesData) { _ in
+                loadWebSites()
+            }
+            .onChange(of: openInAppData) { _ in
+                loadWebSites()
+            }
+            .sheet(isPresented: $showSettings, onDismiss: {
+                loadWebSites()
+            }) {
+                SettingsView()
             }
         }
     }
@@ -178,10 +156,8 @@ struct ContentView: View {
                 if abs(translation.height) > minimumDistance && abs(velocity.height) > minimumSpeed {
                     if translation.height > 0 {
                         goToNextBySwipe()
-                        lastTranslation = value.translation.height
                     } else {
                         goToPreviousBySwipe()
-                        lastTranslation = value.translation.height
                     }
                 }
             }
@@ -190,8 +166,12 @@ struct ContentView: View {
     private struct viewChanger: View {
         var body: some View {
             Capsule()
-                .fill(Color(red: 0.15, green: 0.15, blue: 0.35).opacity(0.3))
+                .fill(Color(red: 0.15, green: 0.15, blue: 0.35).opacity(0.2))
                 .frame(width: 50, height: 150)
+                .overlay(
+                    Capsule()
+                        .stroke(Color.white.opacity(0.5), lineWidth: 0.5) // 白い縁取りを追加
+                )
         }
     }
 
@@ -199,7 +179,7 @@ struct ContentView: View {
         if let decodedWebSites = try? JSONDecoder().decode([String].self, from: webSitesData) {
             webSites = decodedWebSites.filter { !$0.isEmpty }
         } else {
-            webSites = Array(repeating: "", count: 20)
+            webSites = []
         }
 
         if let decodedOpenInApp = try? JSONDecoder().decode([Bool].self, from: openInAppData) {
@@ -207,16 +187,10 @@ struct ContentView: View {
                 .filter { !$0.0.isEmpty }
                 .map { $0.1 }
         } else {
-            openInApp = Array(repeating: true, count: 20)
+            openInApp = Array(repeating: true, count: webSites.count)
         }
     }
 
-    private func goToNext() {
-        if currentWebViewIndex < webSites.count - 1 {
-            currentWebViewIndex += 1
-        }
-    }
-    
     private func goToNextBySwipe() {
         if currentWebViewIndex < webSites.count - 1 {
             currentWebViewIndex += 1
@@ -225,12 +199,6 @@ struct ContentView: View {
         }
     }
 
-    private func goToPrevious() {
-        if currentWebViewIndex > 0 {
-            currentWebViewIndex -= 1
-        }
-    }
-    
     private func goToPreviousBySwipe() {
         if currentWebViewIndex > 0 {
             currentWebViewIndex -= 1
