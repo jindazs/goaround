@@ -90,7 +90,9 @@ struct ContentView: View {
             .onAppear {
                 loadWebSites()
             }
-            .sheet(isPresented: $showSettings) {
+            .sheet(isPresented: $showSettings, onDismiss: {
+                loadWebSites()
+            }) {
                 SettingsView()
             }
         }
