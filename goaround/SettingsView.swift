@@ -29,12 +29,22 @@ struct SettingsView: View {
             repeating: WebSiteSetting(url: "", openInApp: true),
             count: Constants.maxWebSites
         )
-        let savedData = UserDefaults.standard.data(forKey: "webSiteSettings") ?? Data()
+        let savedData = UserDefaults.standard.data(forKey: "webSiteSettings")
         let decoded: [WebSiteSetting]
-        if let saved = try? JSONDecoder().decode([WebSiteSetting].self, from: savedData) {
+        if let savedData,
+           let saved = try? JSONDecoder().decode([WebSiteSetting].self, from: savedData) {
             decoded = saved
         } else {
-            decoded = defaultSettings
+            // Try to initialize from separate values used by ContentView
+            let urlsData = UserDefaults.standard.data(forKey: "webSites") ?? Data()
+            let openInAppData = UserDefaults.standard.data(forKey: "openInApp") ?? Data()
+            let urls = (try? JSONDecoder().decode([String].self, from: urlsData)) ?? []
+            let openInApp = (try? JSONDecoder().decode([Bool].self, from: openInAppData)) ?? []
+            var combined = zip(urls, openInApp).map { WebSiteSetting(url: $0.0, openInApp: $0.1) }
+            while combined.count < Constants.maxWebSites {
+                combined.append(WebSiteSetting(url: "", openInApp: true))
+            }
+            decoded = combined.isEmpty ? defaultSettings : combined
         }
         _webSiteSettings = State(initialValue: decoded)
     }
@@ -81,6 +91,15 @@ struct SettingsView: View {
     private func saveSettings() {
         if let data = try? JSONEncoder().encode(webSiteSettings) {
             webSiteSettingsData = data
+        }
+        // Update values used by ContentView
+        let urls = webSiteSettings.map { $0.url }
+        let openInAppValues = webSiteSettings.map { $0.openInApp }
+        if let urlsData = try? JSONEncoder().encode(urls) {
+            UserDefaults.standard.set(urlsData, forKey: "webSites")
+        }
+        if let openInAppData = try? JSONEncoder().encode(openInAppValues) {
+            UserDefaults.standard.set(openInAppData, forKey: "openInApp")
         }
     }
 }
