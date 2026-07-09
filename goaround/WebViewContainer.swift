@@ -32,32 +32,33 @@ struct WebViewContainer: UIViewRepresentable {
 
         // スワイプで進む・戻るを有効にする
         webView.allowsBackForwardNavigationGestures = true
-
-        // 通知リスナーを追加
-        NotificationCenter.default.addObserver(forName: .goBackInWebView, object: nil, queue: .main) { [weak webView] notification in
-            if let userInfo = notification.userInfo, let notifiedIndex = userInfo["index"] as? Int, notifiedIndex == self.index {
-                // 現在のWebViewが対象の場合のみ戻る操作を実行
-                if webView?.canGoBack == true {
-                    webView?.goBack()
-                }
-            }
-        }
+        context.coordinator.attach(webView: webView)
         
         return webView
     }
     
     func updateUIView(_ uiView: WKWebView, context: Context) {
+        context.coordinator.parent = self
+        context.coordinator.index = index
+
         if reloadWebView && currentWebViewIndex == index {
-            if uiView.canGoBack {
-                uiView.goBack()
+            if uiView.url == nil {
+                loadURL(uiView, coordinator: context.coordinator)
             } else {
-                loadURL(uiView)
+                uiView.reload()
             }
+
             DispatchQueue.main.async {
                 reloadWebView = false
             }
+
+            return
+        }
+
+        if context.coordinator.loadedURL != targetURL {
+            loadURL(uiView, coordinator: context.coordinator)
         } else if uiView.url == nil {
-            loadURL(uiView)
+            loadURL(uiView, coordinator: context.coordinator)
         }
     }
     
@@ -65,42 +66,78 @@ struct WebViewContainer: UIViewRepresentable {
         Coordinator(self)
     }
     
-    private func loadURL(_ webView: WKWebView) {
-        if let url = URL(string: urlString) {
-            let request = URLRequest(url: url)
-            webView.load(request)
+    private var targetURL: URL? {
+        var trimmedURL = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedURL.isEmpty else { return nil }
+
+        if URLComponents(string: trimmedURL)?.scheme == nil {
+            trimmedURL = "https://\(trimmedURL)"
         }
+
+        guard let url = URL(string: trimmedURL),
+              let scheme = url.scheme?.lowercased(),
+              ["http", "https"].contains(scheme),
+              url.host != nil else {
+            return nil
+        }
+
+        return url
+    }
+
+    private func loadURL(_ webView: WKWebView, coordinator: Coordinator) {
+        guard let targetURL else {
+            coordinator.loadedURL = nil
+            webView.stopLoading()
+            webView.loadHTMLString("", baseURL: nil)
+            return
+        }
+
+        coordinator.loadedURL = targetURL
+        webView.load(URLRequest(url: targetURL))
     }
     
     class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate {
         var parent: WebViewContainer
+        var index: Int
+        var loadedURL: URL?
         weak var webView: WKWebView?
         var observers: [NSObjectProtocol] = []
 
         init(_ parent: WebViewContainer) {
             self.parent = parent
+            self.index = parent.index
         }
 
-        func configure(webView: WKWebView, index: Int) {
+        func attach(webView: WKWebView) {
             self.webView = webView
-            // go back observer
+
+            guard observers.isEmpty else { return }
+
             let backObs = NotificationCenter.default.addObserver(forName: .goBackInWebView, object: nil, queue: .main) { [weak self] notification in
                 guard let self = self, let webView = self.webView else { return }
-                if let userInfo = notification.userInfo, let notifiedIndex = userInfo["index"] as? Int, notifiedIndex == index {
-                    if webView.canGoBack {
-                        webView.goBack()
-                    }
+
+                guard self.receives(notification: notification) else { return }
+
+                if webView.canGoBack {
+                    webView.goBack()
                 }
             }
             observers.append(backObs)
 
             let pageObs = NotificationCenter.default.addObserver(forName: .pageDownInWebView, object: nil, queue: .main) { [weak self] notification in
                 guard let self = self, let webView = self.webView else { return }
-                if let userInfo = notification.userInfo, let notifiedIndex = userInfo["index"] as? Int, notifiedIndex == index {
-                    let scrollView = webView.scrollView
-                    let offset = CGPoint(x: 0, y: scrollView.contentOffset.y + scrollView.bounds.height)
-                    scrollView.setContentOffset(offset, animated: true)
-                }
+
+                guard self.receives(notification: notification) else { return }
+
+                let scrollView = webView.scrollView
+                let targetY = min(
+                    scrollView.contentOffset.y + scrollView.bounds.height,
+                    max(
+                        -scrollView.adjustedContentInset.top,
+                        scrollView.contentSize.height - scrollView.bounds.height + scrollView.adjustedContentInset.bottom
+                    )
+                )
+                scrollView.setContentOffset(CGPoint(x: scrollView.contentOffset.x, y: targetY), animated: true)
             }
             observers.append(pageObs)
         }
@@ -109,6 +146,11 @@ struct WebViewContainer: UIViewRepresentable {
             for obs in observers {
                 NotificationCenter.default.removeObserver(obs)
             }
+        }
+
+        private func receives(notification: Notification) -> Bool {
+            guard let notifiedIndex = notification.userInfo?["index"] as? Int else { return false }
+            return notifiedIndex == index
         }
 
         func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
@@ -122,7 +164,11 @@ struct WebViewContainer: UIViewRepresentable {
 
         func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration, for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
             if navigationAction.targetFrame == nil {
-                webView.load(navigationAction.request)
+                if let url = navigationAction.request.url, !parent.openInApp {
+                    UIApplication.shared.open(url)
+                } else {
+                    webView.load(navigationAction.request)
+                }
             }
             return nil
         }

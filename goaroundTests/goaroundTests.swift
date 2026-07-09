@@ -9,28 +9,68 @@ import XCTest
 @testable import goaround
 
 final class goaroundTests: XCTestCase {
+    func testConfiguredSettingsKeepsLegacyOpenInAppAlignedWithURLRows() throws {
+        let urls = ["", "https://x.com/i/lists/example", "https://example.com/comic"]
+        let openInApp = [true, false, true]
 
-    override func setUpWithError() throws {
-        // Put setup code here. This method is called before the invocation of each test method in the class.
+        let settings = WebSiteSettingsStore.configuredSettings(
+            settingsData: Data(),
+            legacyWebSitesData: try encoded(urls),
+            legacyOpenInAppData: try encoded(openInApp)
+        )
+
+        XCTAssertEqual(settings.map(\.url), ["https://x.com/i/lists/example", "https://example.com/comic"])
+        XCTAssertEqual(settings.map(\.openInApp), [false, true])
     }
 
-    override func tearDownWithError() throws {
-        // Put teardown code here. This method is called after the invocation of each test method in the class.
+    func testEditableSettingsPadsWithUniqueRows() throws {
+        let settings = WebSiteSettingsStore.editableSettings(
+            settingsData: Data(),
+            legacyWebSitesData: Data(),
+            legacyOpenInAppData: Data()
+        )
+
+        XCTAssertEqual(settings.count, Constants.maxWebSites)
+        XCTAssertEqual(Set(settings.map(\.id)).count, Constants.maxWebSites)
     }
 
-    func testExample() throws {
-        // This is an example of a functional test case.
-        // Use XCTAssert and related functions to verify your tests produce the correct results.
-        // Any test you write for XCTest can be annotated as throws and async.
-        // Mark your test throws to produce an unexpected failure when your test encounters an uncaught error.
-        // Mark your test async to allow awaiting for asynchronous code to complete. Check the results with assertions afterwards.
+    func testSavingNormalizesWhitespace() throws {
+        let settings = [
+            WebSiteSetting(url: "  https://example.com  ", openInApp: true)
+        ]
+
+        let normalized = WebSiteSettingsStore.normalizedForSaving(settings)
+
+        XCTAssertEqual(normalized.first?.url, "https://example.com")
     }
 
-    func testPerformanceExample() throws {
-        // This is an example of a performance test case.
-        self.measure {
-            // Put the code you want to measure the time of here.
-        }
+    func testExportImportRoundTripsOpenInAppValues() throws {
+        let settings = [
+            WebSiteSetting(url: "https://x.com/i/lists/example", openInApp: false),
+            WebSiteSetting(url: "https://example.com/comic", openInApp: true)
+        ]
+
+        let data = try WebSiteSettingsTransfer.exportData(from: settings)
+        let imported = try WebSiteSettingsTransfer.importedSettings(from: data)
+
+        XCTAssertEqual(imported.map(\.url), settings.map(\.url))
+        XCTAssertEqual(imported.map(\.openInApp), settings.map(\.openInApp))
     }
 
+    func testImportPlainTextURLList() throws {
+        let data = Data("""
+        https://x.com/i/lists/example
+        # comment
+        https://example.com/comic
+        """.utf8)
+
+        let imported = try WebSiteSettingsTransfer.importedSettings(from: data)
+
+        XCTAssertEqual(imported.map(\.url), ["https://x.com/i/lists/example", "https://example.com/comic"])
+        XCTAssertEqual(imported.map(\.openInApp), [true, true])
+    }
+
+    private func encoded<T: Encodable>(_ value: T) throws -> Data {
+        try JSONEncoder().encode(value)
+    }
 }

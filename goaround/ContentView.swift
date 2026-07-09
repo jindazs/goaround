@@ -1,10 +1,10 @@
 import SwiftUI
 
 struct ContentView: View {
-    @AppStorage("webSites") private var webSitesData: Data = Data()
-    @AppStorage("openInApp") private var openInAppData: Data = Data()
-    @State private var webSites: [String] = []
-    @State private var openInApp: [Bool] = []
+    @AppStorage("webSiteSettings") private var webSiteSettingsData: Data = Data()
+    @AppStorage("webSites") private var legacyWebSitesData: Data = Data()
+    @AppStorage("openInApp") private var legacyOpenInAppData: Data = Data()
+    @State private var webSiteSettings: [WebSiteSetting] = []
     @State private var currentWebViewIndex: Int = 0
     @State private var reloadWebView: Bool = false
     @State private var showSettings: Bool = false
@@ -15,29 +15,26 @@ struct ContentView: View {
                 Color(red: 0.1, green: 0.1, blue: 0.1)
                     .edgesIgnoringSafeArea(.all)
                 
-                if webSites.isEmpty {
+                if webSiteSettings.isEmpty {
                     Text("表示するWebサイトがありません")
                 } else {
                     GeometryReader { geometry in
-                        if !reloadWebView {
-                            ForEach(Array(webSites.enumerated()), id: \.offset) { index, site in
-                                WebViewItem(
-                                    site: site,
-                                    index: index,
-                                    openInApp: openInApp[index],
-                                    geometrySize: geometry.size,
-                                    currentWebViewIndex: $currentWebViewIndex,
-                                    reloadWebView: $reloadWebView,
-                                    totalWebViews: webSites.count
-                                )
-                            }
+                        ForEach(Array(webSiteSettings.enumerated()), id: \.element.id) { index, setting in
+                            WebViewItem(
+                                setting: setting,
+                                index: index,
+                                geometrySize: geometry.size,
+                                currentWebViewIndex: $currentWebViewIndex,
+                                reloadWebView: $reloadWebView,
+                                totalWebViews: webSiteSettings.count
+                            )
                         }
                     }
                 }
 
                 VStack {
                     HStack(spacing: 10) {
-                        ForEach(0..<webSites.count, id: \.self) { index in
+                        ForEach(webSiteSettings.indices, id: \.self) { index in
                             Circle()
                                 .fill(index == currentWebViewIndex ? Color.white : Color.white.opacity(0.5))
                                 .frame(width: 10, height: 10)
@@ -71,9 +68,6 @@ struct ContentView: View {
                     .highPriorityGesture(TapGesture(count: 2)
                         .onEnded {
                             reloadWebView = true
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                                reloadWebView = false
-                            }
                         }
                     )
                     .gesture(TapGesture(count: 1)
@@ -90,10 +84,13 @@ struct ContentView: View {
             .onAppear {
                 loadWebSites()
             }
-            .onChange(of: webSitesData) { _ in
+            .onChange(of: webSiteSettingsData) { _, _ in
                 loadWebSites()
             }
-            .onChange(of: openInAppData) { _ in
+            .onChange(of: legacyWebSitesData) { _, _ in
+                loadWebSites()
+            }
+            .onChange(of: legacyOpenInAppData) { _, _ in
                 loadWebSites()
             }
             .sheet(isPresented: $showSettings, onDismiss: {
@@ -106,9 +103,8 @@ struct ContentView: View {
 
     // WebViewContainerをラップしたサブビュー
     private struct WebViewItem: View {
-        let site: String
+        let setting: WebSiteSetting
         let index: Int
-        let openInApp: Bool
         let geometrySize: CGSize
         @Binding var currentWebViewIndex: Int
         @Binding var reloadWebView: Bool
@@ -116,8 +112,8 @@ struct ContentView: View {
 
         var body: some View {
             WebViewContainer(
-                urlString: site,
-                openInApp: openInApp,
+                urlString: setting.trimmedURL,
+                openInApp: setting.openInApp,
                 reloadWebView: $reloadWebView,
                 index: index,
                 currentWebViewIndex: $currentWebViewIndex,
@@ -176,23 +172,23 @@ struct ContentView: View {
     }
 
     private func loadWebSites() {
-        if let decodedWebSites = try? JSONDecoder().decode([String].self, from: webSitesData) {
-            webSites = decodedWebSites.filter { !$0.isEmpty }
-        } else {
-            webSites = []
-        }
+        webSiteSettings = WebSiteSettingsStore.configuredSettings(
+            settingsData: webSiteSettingsData,
+            legacyWebSitesData: legacyWebSitesData,
+            legacyOpenInAppData: legacyOpenInAppData
+        )
 
-        if let decodedOpenInApp = try? JSONDecoder().decode([Bool].self, from: openInAppData) {
-            openInApp = zip(webSites, decodedOpenInApp)
-                .filter { !$0.0.isEmpty }
-                .map { $0.1 }
-        } else {
-            openInApp = Array(repeating: true, count: webSites.count)
+        if webSiteSettings.isEmpty {
+            currentWebViewIndex = 0
+        } else if currentWebViewIndex >= webSiteSettings.count {
+            currentWebViewIndex = webSiteSettings.count - 1
         }
     }
 
     private func goToNextBySwipe() {
-        if currentWebViewIndex < webSites.count - 1 {
+        guard !webSiteSettings.isEmpty else { return }
+
+        if currentWebViewIndex < webSiteSettings.count - 1 {
             currentWebViewIndex += 1
         } else {
             currentWebViewIndex = 0
@@ -200,10 +196,12 @@ struct ContentView: View {
     }
 
     private func goToPreviousBySwipe() {
+        guard !webSiteSettings.isEmpty else { return }
+
         if currentWebViewIndex > 0 {
             currentWebViewIndex -= 1
         } else {
-            currentWebViewIndex = webSites.count - 1
+            currentWebViewIndex = webSiteSettings.count - 1
         }
     }
     
