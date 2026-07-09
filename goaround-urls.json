@@ -1,0 +1,49 @@
+{
+  "sites" : [
+    {
+      "openInApp" : true,
+      "url" : "https:\/\/webcomics.jp\/mylist"
+    },
+    {
+      "openInApp" : false,
+      "url" : "https:\/\/x.com\/search?q=list%3A1647545261651292161%20-filter%3Areplies&f=live"
+    },
+    {
+      "openInApp" : false,
+      "url" : "https:\/\/x.com\/search?q=filter%3Aimages+list%3A1330011344389562368+exclude%3Aretweets&f=live"
+    },
+    {
+      "openInApp" : false,
+      "url" : "https:\/\/x.com\/search?q=list%3A1748964909570981959%20-filter%3Areplies&f=live"
+    },
+    {
+      "openInApp" : false,
+      "url" : "https:\/\/x.com\/search?q=list%3A222920212%20-filter%3Areplies&f=live"
+    },
+    {
+      "openInApp" : false,
+      "url" : "https:\/\/x.com\/search?q=list%3A1647548710421950464%20-filter%3Areplies&f=live"
+    },
+    {
+      "openInApp" : false,
+      "url" : "https:\/\/bsky.app"
+    },
+    {
+      "openInApp" : false,
+      "url" : "https:\/\/www.threads.net\/following"
+    },
+    {
+      "openInApp" : false,
+      "url" : "https:\/\/www.instagram.com\/?variant=following"
+    },
+    {
+      "openInApp" : true,
+      "url" : "https:\/\/j-camera.net\/listp.php?w=m6&mk%5B%5D=14&selectItemmk%5B%5D=14&ct%5B%5D=10&ct%5B%5D=4&selectItemct%5B%5D=10&selectItemct%5B%5D=4&pl=&selectItempl=&ph=500000&selectItemph=500000&m=0&nw=%E9%99%A4%E5%A4%96%E3%82%AD%E3%83%BC%E3%83%AF%E3%83%BC%E3%83%89&searchlog=d"
+    },
+    {
+      "openInApp" : true,
+      "url" : "https:\/\/j-camera.net\/listp.php?w=m4&mk%5B%5D=14&selectItemmk%5B%5D=14&ct%5B%5D=10&ct%5B%5D=4&selectItemct%5B%5D=10&selectItemct%5B%5D=4&pl=&selectItempl=&ph=500000&selectItemph=500000&m=0&nw=%E9%99%A4%E5%A4%96%E3%82%AD%E3%83%BC%E3%83%AF%E3%83%BC%E3%83%89&searchlog=d"
+    }
+  ],
+  "version" : 1
+}
