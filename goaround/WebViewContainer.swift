@@ -4,7 +4,7 @@ import SwiftUI
 struct WebViewContainer: UIViewRepresentable {
     let urlString: String
     let openInApp: Bool
-    @Binding var reloadWebView: Bool
+    let reloadAllWebViewsTrigger: Int
     let index: Int
     @Binding var currentWebViewIndex: Int
     let totalWebViews: Int // WebViewの総数
@@ -41,15 +41,13 @@ struct WebViewContainer: UIViewRepresentable {
         context.coordinator.parent = self
         context.coordinator.index = index
 
-        if reloadWebView && currentWebViewIndex == index {
+        if context.coordinator.lastReloadAllWebViewsTrigger != reloadAllWebViewsTrigger {
+            context.coordinator.lastReloadAllWebViewsTrigger = reloadAllWebViewsTrigger
+
             if uiView.url == nil {
                 loadURL(uiView, coordinator: context.coordinator)
             } else {
                 uiView.reload()
-            }
-
-            DispatchQueue.main.async {
-                reloadWebView = false
             }
 
             return
@@ -102,10 +100,12 @@ struct WebViewContainer: UIViewRepresentable {
         var loadedURL: URL?
         weak var webView: WKWebView?
         var observers: [NSObjectProtocol] = []
+        var lastReloadAllWebViewsTrigger: Int
 
         init(_ parent: WebViewContainer) {
             self.parent = parent
             self.index = parent.index
+            self.lastReloadAllWebViewsTrigger = parent.reloadAllWebViewsTrigger
         }
 
         func attach(webView: WKWebView) {
@@ -124,22 +124,6 @@ struct WebViewContainer: UIViewRepresentable {
             }
             observers.append(backObs)
 
-            let pageObs = NotificationCenter.default.addObserver(forName: .pageDownInWebView, object: nil, queue: .main) { [weak self] notification in
-                guard let self = self, let webView = self.webView else { return }
-
-                guard self.receives(notification: notification) else { return }
-
-                let scrollView = webView.scrollView
-                let targetY = min(
-                    scrollView.contentOffset.y + scrollView.bounds.height,
-                    max(
-                        -scrollView.adjustedContentInset.top,
-                        scrollView.contentSize.height - scrollView.bounds.height + scrollView.adjustedContentInset.bottom
-                    )
-                )
-                scrollView.setContentOffset(CGPoint(x: scrollView.contentOffset.x, y: targetY), animated: true)
-            }
-            observers.append(pageObs)
         }
 
         deinit {

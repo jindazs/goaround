@@ -6,7 +6,7 @@ struct ContentView: View {
     @AppStorage("openInApp") private var legacyOpenInAppData: Data = Data()
     @State private var webSiteSettings: [WebSiteSetting] = []
     @State private var currentWebViewIndex: Int = 0
-    @State private var reloadWebView: Bool = false
+    @State private var reloadAllWebViewsTrigger: Int = 0
     @State private var showSettings: Bool = false
 
     var body: some View {
@@ -25,7 +25,7 @@ struct ContentView: View {
                                 index: index,
                                 geometrySize: geometry.size,
                                 currentWebViewIndex: $currentWebViewIndex,
-                                reloadWebView: $reloadWebView,
+                                reloadAllWebViewsTrigger: reloadAllWebViewsTrigger,
                                 totalWebViews: webSiteSettings.count
                             )
                         }
@@ -67,13 +67,8 @@ struct ContentView: View {
                     .gesture(dragGesture)
                     .highPriorityGesture(TapGesture(count: 2)
                         .onEnded {
-                            reloadWebView = true
+                            reloadAllWebViewsTrigger += 1
                         }
-                    )
-                    .gesture(TapGesture(count: 1)
-                        .onEnded {
-                            pageDownCurrentWebView() // ページダウンボタン
-                            }
                     )
                     
                     Spacer()
@@ -107,14 +102,14 @@ struct ContentView: View {
         let index: Int
         let geometrySize: CGSize
         @Binding var currentWebViewIndex: Int
-        @Binding var reloadWebView: Bool
+        let reloadAllWebViewsTrigger: Int
         let totalWebViews: Int
 
         var body: some View {
             WebViewContainer(
                 urlString: setting.trimmedURL,
                 openInApp: setting.openInApp,
-                reloadWebView: $reloadWebView,
+                reloadAllWebViewsTrigger: reloadAllWebViewsTrigger,
                 index: index,
                 currentWebViewIndex: $currentWebViewIndex,
                 totalWebViews: totalWebViews
@@ -205,10 +200,6 @@ struct ContentView: View {
         }
     }
     
-    private func pageDownCurrentWebView() {
-        NotificationCenter.default.post(name: .pageDownInWebView, object: nil, userInfo: ["index": currentWebViewIndex])
-    }
-    
     private func goBack() {
         // 通知を発行
         NotificationCenter.default.post(name: .goBackInWebView, object: nil, userInfo: ["index": currentWebViewIndex])
@@ -217,6 +208,5 @@ struct ContentView: View {
 
 // 通知用の拡張
 extension Notification.Name {
-    static let pageDownInWebView = Notification.Name("pageDownInWebView")
     static let goBackInWebView = Notification.Name("goBackInWebView")
 }
