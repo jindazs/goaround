@@ -12,11 +12,28 @@ struct WebSiteSetting: Identifiable, Codable, Equatable {
     var id: UUID
     var url: String
     var openInApp: Bool
+    var hideXBottomMenu: Bool
 
-    init(id: UUID = UUID(), url: String, openInApp: Bool) {
+    init(id: UUID = UUID(), url: String, openInApp: Bool, hideXBottomMenu: Bool = false) {
         self.id = id
         self.url = url
         self.openInApp = openInApp
+        self.hideXBottomMenu = hideXBottomMenu
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case url
+        case openInApp
+        case hideXBottomMenu
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+        url = try container.decode(String.self, forKey: .url)
+        openInApp = try container.decodeIfPresent(Bool.self, forKey: .openInApp) ?? true
+        hideXBottomMenu = try container.decodeIfPresent(Bool.self, forKey: .hideXBottomMenu) ?? false
     }
 
     var trimmedURL: String {
@@ -26,12 +43,45 @@ struct WebSiteSetting: Identifiable, Codable, Equatable {
     var isConfigured: Bool {
         !trimmedURL.isEmpty
     }
+
+    var isXSite: Bool {
+        var normalizedURL = trimmedURL
+        if URLComponents(string: normalizedURL)?.scheme == nil {
+            normalizedURL = "https://\(normalizedURL)"
+        }
+
+        guard let host = URLComponents(string: normalizedURL)?.host?.lowercased() else {
+            return false
+        }
+
+        return host == "x.com" || host.hasSuffix(".x.com")
+    }
 }
 
 struct WebSiteSettingsExport: Codable {
     struct Site: Codable {
         var url: String
         var openInApp: Bool
+        var hideXBottomMenu: Bool
+
+        init(url: String, openInApp: Bool, hideXBottomMenu: Bool = false) {
+            self.url = url
+            self.openInApp = openInApp
+            self.hideXBottomMenu = hideXBottomMenu
+        }
+
+        private enum CodingKeys: String, CodingKey {
+            case url
+            case openInApp
+            case hideXBottomMenu
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            url = try container.decode(String.self, forKey: .url)
+            openInApp = try container.decodeIfPresent(Bool.self, forKey: .openInApp) ?? true
+            hideXBottomMenu = try container.decodeIfPresent(Bool.self, forKey: .hideXBottomMenu) ?? false
+        }
     }
 
     var version: Int = 1
@@ -57,7 +107,13 @@ enum WebSiteSettingsTransfer {
         let export = WebSiteSettingsExport(
             sites: WebSiteSettingsStore.normalizedForSaving(settings)
                 .filter(\.isConfigured)
-                .map { WebSiteSettingsExport.Site(url: $0.trimmedURL, openInApp: $0.openInApp) }
+                .map {
+                    WebSiteSettingsExport.Site(
+                        url: $0.trimmedURL,
+                        openInApp: $0.openInApp,
+                        hideXBottomMenu: $0.hideXBottomMenu
+                    )
+                }
         )
 
         let encoder = JSONEncoder()
@@ -69,11 +125,23 @@ enum WebSiteSettingsTransfer {
         let decoder = JSONDecoder()
 
         if let export = try? decoder.decode(WebSiteSettingsExport.self, from: data) {
-            return try validated(export.sites.map { WebSiteSetting(url: $0.url, openInApp: $0.openInApp) })
+            return try validated(export.sites.map {
+                WebSiteSetting(
+                    url: $0.url,
+                    openInApp: $0.openInApp,
+                    hideXBottomMenu: $0.hideXBottomMenu
+                )
+            })
         }
 
         if let sites = try? decoder.decode([WebSiteSettingsExport.Site].self, from: data) {
-            return try validated(sites.map { WebSiteSetting(url: $0.url, openInApp: $0.openInApp) })
+            return try validated(sites.map {
+                WebSiteSetting(
+                    url: $0.url,
+                    openInApp: $0.openInApp,
+                    hideXBottomMenu: $0.hideXBottomMenu
+                )
+            })
         }
 
         if let settings = try? decoder.decode([WebSiteSetting].self, from: data) {
@@ -294,6 +362,14 @@ struct SettingsView: View {
                             Text("Open In-App").foregroundColor(.gray)
                             Toggle("", isOn: $setting.openInApp)
                                 .labelsHidden()
+                        }
+                        if setting.isXSite {
+                            HStack {
+                                Spacer()
+                                Text("Xの下部メニューを隠す").foregroundColor(.gray)
+                                Toggle("", isOn: $setting.hideXBottomMenu)
+                                    .labelsHidden()
+                            }
                         }
                     }
                 }

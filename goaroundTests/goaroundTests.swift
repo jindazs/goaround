@@ -46,7 +46,11 @@ final class goaroundTests: XCTestCase {
 
     func testExportImportRoundTripsOpenInAppValues() throws {
         let settings = [
-            WebSiteSetting(url: "https://x.com/i/lists/example", openInApp: false),
+            WebSiteSetting(
+                url: "https://x.com/i/lists/example",
+                openInApp: false,
+                hideXBottomMenu: true
+            ),
             WebSiteSetting(url: "https://example.com/comic", openInApp: true)
         ]
 
@@ -55,6 +59,21 @@ final class goaroundTests: XCTestCase {
 
         XCTAssertEqual(imported.map(\.url), settings.map(\.url))
         XCTAssertEqual(imported.map(\.openInApp), settings.map(\.openInApp))
+        XCTAssertEqual(imported.map(\.hideXBottomMenu), [true, false])
+    }
+
+    func testOldSavedSettingsDefaultToShowingXBottomMenu() throws {
+        let data = Data(#"[{"id":"00000000-0000-0000-0000-000000000001","url":"https://x.com/home","openInApp":true}]"#.utf8)
+
+        let settings = try JSONDecoder().decode([WebSiteSetting].self, from: data)
+
+        XCTAssertEqual(settings.first?.hideXBottomMenu, false)
+    }
+
+    func testXSiteDetection() {
+        XCTAssertTrue(WebSiteSetting(url: "x.com/home", openInApp: true).isXSite)
+        XCTAssertTrue(WebSiteSetting(url: "https://mobile.x.com/home", openInApp: true).isXSite)
+        XCTAssertFalse(WebSiteSetting(url: "https://example.com/?next=x.com", openInApp: true).isXSite)
     }
 
     func testImportPlainTextURLList() throws {

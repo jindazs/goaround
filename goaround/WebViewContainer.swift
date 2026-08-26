@@ -4,6 +4,7 @@ import SwiftUI
 struct WebViewContainer: UIViewRepresentable {
     let urlString: String
     let openInApp: Bool
+    let hideXBottomMenu: Bool
     let reloadAllWebViewsTrigger: Int
     let index: Int
     @Binding var currentWebViewIndex: Int
@@ -16,6 +17,13 @@ struct WebViewContainer: UIViewRepresentable {
         configuration.mediaTypesRequiringUserActionForPlayback = [.video, .audio]
         // インライン再生を許可する設定を追加
         configuration.allowsInlineMediaPlayback = true
+        configuration.userContentController.addUserScript(
+            WKUserScript(
+                source: Self.xBottomMenuScript(initiallyHidden: hideXBottomMenu),
+                injectionTime: .atDocumentEnd,
+                forMainFrameOnly: true
+            )
+        )
         
         let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.navigationDelegate = context.coordinator
@@ -40,6 +48,7 @@ struct WebViewContainer: UIViewRepresentable {
     func updateUIView(_ uiView: WKWebView, context: Context) {
         context.coordinator.parent = self
         context.coordinator.index = index
+        context.coordinator.setXBottomMenuHidden(hideXBottomMenu, in: uiView)
 
         if context.coordinator.lastReloadAllWebViewsTrigger != reloadAllWebViewsTrigger {
             context.coordinator.lastReloadAllWebViewsTrigger = reloadAllWebViewsTrigger
@@ -93,6 +102,95 @@ struct WebViewContainer: UIViewRepresentable {
         coordinator.loadedURL = targetURL
         webView.load(URLRequest(url: targetURL))
     }
+
+    private static func xBottomMenuScript(initiallyHidden: Bool) -> String {
+        let initialValue = initiallyHidden ? "true" : "false"
+
+        return """
+        (() => {
+            const apiName = "__goaroundSetXBottomMenuHidden";
+            const marker = "data-goaround-hidden-x-bottom-menu";
+            const styleID = "goaround-x-bottom-menu-style";
+            let enabled = \(initialValue);
+            let framePending = false;
+
+            if (typeof window[apiName] === "function") {
+                window[apiName](enabled);
+                return;
+            }
+
+            const isX = () => location.hostname === "x.com" || location.hostname.endsWith(".x.com");
+
+            const ensureStyle = () => {
+                if (document.getElementById(styleID)) return;
+                const style = document.createElement("style");
+                style.id = styleID;
+                style.textContent = `[${marker}] { display: none !important; }`;
+                (document.head || document.documentElement).appendChild(style);
+            };
+
+            const restore = () => {
+                document.querySelectorAll(`[${marker}]`).forEach(element => {
+                    element.removeAttribute(marker);
+                });
+            };
+
+            const hideBottomNavigation = () => {
+                if (!enabled || !isX()) {
+                    restore();
+                    return;
+                }
+
+                ensureStyle();
+                document.querySelectorAll('a[data-testid^="AppTabBar_"]').forEach(link => {
+                    const navigation = link.closest("nav");
+                    if (!navigation) return;
+
+                    const navigationRect = navigation.getBoundingClientRect();
+                    const isNearBottom = navigationRect.top > window.innerHeight * 0.45
+                        && navigationRect.bottom >= window.innerHeight - 120;
+                    if (!isNearBottom) return;
+
+                    navigation.setAttribute(marker, "");
+
+                    let ancestor = navigation.parentElement;
+                    while (ancestor && ancestor !== document.body) {
+                        const rect = ancestor.getBoundingClientRect();
+                        const position = getComputedStyle(ancestor).position;
+                        if (position === "fixed"
+                            && rect.bottom >= window.innerHeight - 10
+                            && rect.height <= 200) {
+                            ancestor.setAttribute(marker, "");
+                            break;
+                        }
+                        ancestor = ancestor.parentElement;
+                    }
+                });
+            };
+
+            const scheduleUpdate = () => {
+                if (framePending) return;
+                framePending = true;
+                requestAnimationFrame(() => {
+                    framePending = false;
+                    hideBottomNavigation();
+                });
+            };
+
+            window[apiName] = value => {
+                enabled = Boolean(value);
+                hideBottomNavigation();
+            };
+
+            new MutationObserver(scheduleUpdate).observe(document.documentElement, {
+                childList: true,
+                subtree: true
+            });
+            window.addEventListener("resize", scheduleUpdate, { passive: true });
+            hideBottomNavigation();
+        })();
+        """
+    }
     
     class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate {
         var parent: WebViewContainer
@@ -135,6 +233,15 @@ struct WebViewContainer: UIViewRepresentable {
         private func receives(notification: Notification) -> Bool {
             guard let notifiedIndex = notification.userInfo?["index"] as? Int else { return false }
             return notifiedIndex == index
+        }
+
+        func setXBottomMenuHidden(_ hidden: Bool, in webView: WKWebView) {
+            let value = hidden ? "true" : "false"
+            webView.evaluateJavaScript("window.__goaroundSetXBottomMenuHidden?.(\(value));")
+        }
+
+        func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+            setXBottomMenuHidden(parent.hideXBottomMenu, in: webView)
         }
 
         func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {

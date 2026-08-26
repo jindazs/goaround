@@ -109,6 +109,7 @@ struct ContentView: View {
             WebViewContainer(
                 urlString: setting.trimmedURL,
                 openInApp: setting.openInApp,
+                hideXBottomMenu: setting.hideXBottomMenu,
                 reloadAllWebViewsTrigger: reloadAllWebViewsTrigger,
                 index: index,
                 currentWebViewIndex: $currentWebViewIndex,
