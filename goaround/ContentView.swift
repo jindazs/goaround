@@ -6,7 +6,7 @@ struct ContentView: View {
     @AppStorage("openInApp") private var legacyOpenInAppData: Data = Data()
     @State private var webSiteSettings: [WebSiteSetting] = []
     @State private var currentWebViewIndex: Int = 0
-    @State private var reloadAllWebViewsTrigger: Int = 0
+    @State private var resetAllWebViewsTrigger: Int = 0
     @State private var showSettings: Bool = false
 
     var body: some View {
@@ -25,7 +25,7 @@ struct ContentView: View {
                                 index: index,
                                 geometrySize: geometry.size,
                                 currentWebViewIndex: $currentWebViewIndex,
-                                reloadAllWebViewsTrigger: reloadAllWebViewsTrigger,
+                                resetAllWebViewsTrigger: resetAllWebViewsTrigger,
                                 totalWebViews: webSiteSettings.count
                             )
                         }
@@ -67,7 +67,7 @@ struct ContentView: View {
                     .gesture(dragGesture)
                     .highPriorityGesture(TapGesture(count: 2)
                         .onEnded {
-                            reloadAllWebViewsTrigger += 1
+                            resetAllWebViewsTrigger += 1
                         }
                     )
                     
@@ -102,7 +102,7 @@ struct ContentView: View {
         let index: Int
         let geometrySize: CGSize
         @Binding var currentWebViewIndex: Int
-        let reloadAllWebViewsTrigger: Int
+        let resetAllWebViewsTrigger: Int
         let totalWebViews: Int
 
         var body: some View {
@@ -110,7 +110,7 @@ struct ContentView: View {
                 urlString: setting.trimmedURL,
                 openInApp: setting.openInApp,
                 hideXBottomMenu: setting.hideXBottomMenu,
-                reloadAllWebViewsTrigger: reloadAllWebViewsTrigger,
+                resetAllWebViewsTrigger: resetAllWebViewsTrigger,
                 index: index,
                 currentWebViewIndex: $currentWebViewIndex,
                 totalWebViews: totalWebViews

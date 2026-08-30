@@ -5,7 +5,7 @@ struct WebViewContainer: UIViewRepresentable {
     let urlString: String
     let openInApp: Bool
     let hideXBottomMenu: Bool
-    let reloadAllWebViewsTrigger: Int
+    let resetAllWebViewsTrigger: Int
     let index: Int
     @Binding var currentWebViewIndex: Int
     let totalWebViews: Int // WebViewの総数
@@ -50,14 +50,9 @@ struct WebViewContainer: UIViewRepresentable {
         context.coordinator.index = index
         context.coordinator.setXBottomMenuHidden(hideXBottomMenu, in: uiView)
 
-        if context.coordinator.lastReloadAllWebViewsTrigger != reloadAllWebViewsTrigger {
-            context.coordinator.lastReloadAllWebViewsTrigger = reloadAllWebViewsTrigger
-
-            if uiView.url == nil {
-                loadURL(uiView, coordinator: context.coordinator)
-            } else {
-                uiView.reload()
-            }
+        if context.coordinator.lastResetAllWebViewsTrigger != resetAllWebViewsTrigger {
+            context.coordinator.lastResetAllWebViewsTrigger = resetAllWebViewsTrigger
+            loadURL(uiView, coordinator: context.coordinator)
 
             return
         }
@@ -198,12 +193,12 @@ struct WebViewContainer: UIViewRepresentable {
         var loadedURL: URL?
         weak var webView: WKWebView?
         var observers: [NSObjectProtocol] = []
-        var lastReloadAllWebViewsTrigger: Int
+        var lastResetAllWebViewsTrigger: Int
 
         init(_ parent: WebViewContainer) {
             self.parent = parent
             self.index = parent.index
-            self.lastReloadAllWebViewsTrigger = parent.reloadAllWebViewsTrigger
+            self.lastResetAllWebViewsTrigger = parent.resetAllWebViewsTrigger
         }
 
         func attach(webView: WKWebView) {
