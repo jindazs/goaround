@@ -1,5 +1,6 @@
 import SwiftUI
 import SafariServices
+import UniformTypeIdentifiers
 
 struct RSSView: View {
     @ObservedObject private var store = RSSStore.shared
@@ -127,6 +128,8 @@ private struct RSSFeedsView: View {
     @State private var isAdding = false
     @State private var error: String?
     @State private var pendingDeletion: RSSFeed?
+    @State private var isImportingOPML = false
+    @State private var importMessage: String?
 
     var body: some View {
         NavigationStack {
@@ -148,6 +151,13 @@ private struct RSSFeedsView: View {
                     }.disabled(isAdding || url.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     if let error { Text(error).foregroundStyle(.red).font(.footnote) }
                 }
+                Section {
+                    Button("OPMLをインポート", systemImage: "square.and.arrow.down") {
+                        isImportingOPML = true
+                    }.disabled(isAdding)
+                    Text(".opml / .xmlファイルからフィードを追加します。既存のフィードと既読状態は保持されます。")
+                        .font(.footnote).foregroundStyle(.secondary)
+                }
                 Section("登録フィード（\(store.feeds.count)）") {
                     ForEach(store.feeds) { feed in
                         VStack(alignment: .leading, spacing: 4) {
@@ -168,6 +178,26 @@ private struct RSSFeedsView: View {
             .navigationTitle("フィード管理")
             .toolbar { Button("完了") { dismiss() }.disabled(isAdding) }
             .interactiveDismissDisabled(isAdding)
+            .fileImporter(isPresented: $isImportingOPML, allowedContentTypes: [.data], allowsMultipleSelection: false) { result in
+                do {
+                    guard let fileURL = try result.get().first else { return }
+                    let accessed = fileURL.startAccessingSecurityScopedResource()
+                    defer { if accessed { fileURL.stopAccessingSecurityScopedResource() } }
+                    let file = try FileHandle(forReadingFrom: fileURL)
+                    defer { try? file.close() }
+                    let data = try file.read(upToCount: OPMLParser.maxBytes + 1) ?? Data()
+                    importMessage = try store.importOPML(data).message
+                } catch {
+                    importMessage = error.localizedDescription
+                }
+            }
+            .alert("OPMLインポート", isPresented: Binding(
+                get: { importMessage != nil }, set: { if !$0 { importMessage = nil } }
+            )) {
+                Button("OK") { importMessage = nil }
+            } message: {
+                Text(importMessage ?? "")
+            }
             .confirmationDialog("このフィードをすべての端末から削除しますか？", isPresented: Binding(
                 get: { pendingDeletion != nil }, set: { if !$0 { pendingDeletion = nil } }
             ), titleVisibility: .visible) {

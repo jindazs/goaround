@@ -331,3 +331,91 @@ final class RSSSyncTests: XCTestCase {
         XCTAssertNil(cloud.value)
     }
 }
+
+final class OPMLImportTests: XCTestCase {
+    func testNestedFoldersTitlesDuplicatesAndInvalidURLs() throws {
+        let xml = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <opml version="2.0"><head><title>Subscriptions</title></head><body>
+        <outline text="Folder"><outline text="News &amp; Updates" xmlUrl="https://EXAMPLE.com/feed#top"/>
+        <outline text="Nested"><outline title="Atom title" text="Fallback" xmlUrl="https://example.org/atom"/></outline></outline>
+        <outline xmlUrl="https://example.com/feed"/>
+        <outline xmlUrl="javascript:alert(1)"/><outline type="rss" text="Missing URL"/>
+        <outline text="Website only" htmlUrl="https://example.net"/>
+        </body></opml>
+        """
+        let result = try OPMLParser.parse(Data(xml.utf8))
+        XCTAssertEqual(result.feeds.map(\.url), ["https://example.com/feed", "https://example.org/atom"])
+        XCTAssertEqual(result.feeds.map(\.title), ["News & Updates", "Atom title"])
+        XCTAssertEqual(result.duplicates, 1)
+        XCTAssertEqual(result.invalid, 2)
+    }
+
+    func testOPML1UTF16AndTitleFallback() throws {
+        let xml = """
+        <?xml version="1.0" encoding="UTF-16"?><opml version="1.0"><body>
+        <outline text="日本語フィード" xmlUrl="https://example.com/jp"/>
+        <outline title=" " text=" " xmlUrl="https://example.org/feed"/>
+        </body></opml>
+        """
+        let result = try OPMLParser.parse(XCTUnwrap(xml.data(using: .utf16)))
+        XCTAssertEqual(result.feeds.map(\.title), ["日本語フィード", "example.org"])
+    }
+
+    func testRejectsMalformedNonOPMLEmptyAndEntityDocuments() {
+        for xml in ["<html/>", "<opml><body><outline xmlUrl='https://example.com/feed'/>",
+                    "<opml><body/></opml>",
+                    "<!DOCTYPE opml [<!ENTITY sample 'expanded'>]><opml><body><outline text='&sample;' xmlUrl='https://example.com/feed'/></body></opml>"] {
+            XCTAssertThrowsError(try OPMLParser.parse(Data(xml.utf8)), xml)
+        }
+        XCTAssertThrowsError(try OPMLParser.parse(Data(repeating: 32, count: OPMLParser.maxBytes + 1)))
+    }
+
+    @MainActor
+    func testImportPreservesExistingFeedsReadsAndPublishesOffline() throws {
+        let name = "OPMLTests." + UUID().uuidString
+        let defaults = UserDefaults(suiteName: name)!
+        defer { defaults.removePersistentDomain(forName: name) }
+        let cloud = MemoryCloudStore()
+        var initial = RSSSyncState()
+        let existing = RSSFeed(url: "https://example.com/feed", title: "Keep title")
+        initial.feeds[existing.url] = RSSChange(value: existing, date: Date())
+        initial.reads["article"] = RSSChange(value: true, date: Date())
+        cloud.value = try JSONEncoder().encode(initial)
+        let store = RSSStore(defaults: defaults, cloud: cloud, cacheURL: nil)
+        let xml = Data("<opml><body><outline text='Changed title' xmlUrl='https://example.com/feed'/><outline text='New' xmlUrl='https://example.org/atom'/></body></opml>".utf8)
+        let result = try store.importOPML(xml)
+        XCTAssertEqual(result.added, 1)
+        XCTAssertEqual(result.duplicates, 1)
+        XCTAssertEqual(store.state.feeds[existing.url]?.value?.title, "Keep title")
+        XCTAssertEqual(store.state.reads["article"]?.value, true)
+        let published = try JSONDecoder().decode(RSSSyncState.self, from: XCTUnwrap(cloud.value))
+        XCTAssertEqual(published.feeds.values.compactMap(\.value).count, 2)
+        XCTAssertEqual(RSSStore(defaults: defaults, cloud: cloud, cacheURL: nil).feeds.count, 2)
+        let again = try store.importOPML(xml)
+        XCTAssertEqual(again.added, 0)
+        XCTAssertEqual(again.duplicates, 2)
+        let before = store.state
+        XCTAssertThrowsError(try store.importOPML(Data("<opml><body>".utf8)))
+        XCTAssertEqual(store.state, before)
+    }
+
+    @MainActor
+    func testImportReportsLimitWithoutDroppingExistingFeeds() throws {
+        let name = "OPMLLimitTests." + UUID().uuidString
+        let defaults = UserDefaults(suiteName: name)!
+        defer { defaults.removePersistentDomain(forName: name) }
+        let cloud = MemoryCloudStore()
+        let store = RSSStore(defaults: defaults, cloud: cloud, cacheURL: nil)
+        let outlines = (0..<102).map { "<outline text='Feed \($0)' xmlUrl='https://example.com/feed/\($0)'/>" }.joined()
+        let result = try store.importOPML(Data("<opml><body>\(outlines)</body></opml>".utf8))
+        XCTAssertEqual(result.added, 100)
+        XCTAssertEqual(result.overLimit, 2)
+        XCTAssertEqual(store.feeds.count, 100)
+        let removed = try XCTUnwrap(store.feeds.first)
+        store.removeFeed(removed)
+        let reimported = try store.importOPML(Data("<opml><body><outline xmlUrl='\(removed.url)'/></body></opml>".utf8))
+        XCTAssertEqual(reimported.added, 1)
+        XCTAssertEqual(store.feeds.count, 100)
+    }
+}

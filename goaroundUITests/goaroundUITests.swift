@@ -32,6 +32,12 @@ final class goaroundUITests: XCTestCase {
         app.buttons["フィード管理"].tap()
         let field = app.textFields["rssFeedURL"]
         XCTAssertTrue(field.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["OPMLをインポート"].exists)
+        app.buttons["OPMLをインポート"].tap()
+        let cancel = app.buttons.matching(NSPredicate(format: "label == 'Cancel' OR label == 'キャンセル'")).firstMatch
+        XCTAssertTrue(cancel.waitForExistence(timeout: 5))
+        cancel.tap()
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
         field.tap()
         field.typeText("not-a-feed-url")
         app.buttons["追加"].tap()

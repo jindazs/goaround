@@ -105,6 +105,29 @@ final class RSSStore: ObservableObject {
         cache()
     }
 
+    /// Import subscriptions offline in one batch; article fetching is a separate operation.
+    func importOPML(_ data: Data) throws -> OPMLImportResult {
+        var result = try OPMLParser.parse(data)
+        reconcile()
+        var count = feeds.count
+        for feed in result.feeds {
+            if state.feeds[feed.url]?.value != nil {
+                result.duplicates += 1
+            } else if count >= 100 {
+                result.overLimit += 1
+            } else {
+                state.feeds[feed.url] = RSSChange(value: feed, date: nextDate())
+                count += 1
+                result.added += 1
+            }
+        }
+        if result.added > 0 {
+            persist()
+            publish()
+        }
+        return result
+    }
+
     func removeFeed(_ feed: RSSFeed) {
         state.feeds[feed.url] = RSSChange(value: nil, date: nextDate())
         articles.removeAll { $0.feedURL == feed.url }

@@ -189,3 +189,86 @@ enum RSSClient {
         return try RSSParser.parse(data, source: url)
     }
 }
+
+struct OPMLImportResult {
+    var feeds: [RSSFeed] = []
+    var invalid = 0
+    var duplicates = 0
+    var added = 0
+    var overLimit = 0
+
+    var message: String {
+        "\(added)件追加しました。\n重複：\(duplicates)件\n無効なURL：\(invalid)件\n登録上限によるスキップ：\(overLimit)件\n\n記事は登録後に取得します。フォルダ構成は取り込みません。"
+    }
+}
+
+enum OPMLImportError: LocalizedError {
+    case invalidDocument, tooLarge, noFeeds
+    var errorDescription: String? {
+        switch self {
+        case .invalidDocument: return "OPMLファイルを読み取れませんでした。ファイルの形式を確認してください。"
+        case .tooLarge: return "OPMLファイルは5MB以下にしてください。"
+        case .noFeeds: return "取り込めるフィードがありません。xmlUrlを含むOPMLファイルを選んでください。"
+        }
+    }
+}
+
+/// Folder outlines are traversed recursively; only subscription xmlUrl attributes are imported.
+final class OPMLParser: NSObject, XMLParserDelegate {
+    static let maxBytes = 5_000_000
+    private var stack: [String] = []
+    private var hasRoot = false
+    private var hasBody = false
+    private var seen = Set<String>()
+    private var result = OPMLImportResult()
+
+    static func parse(_ data: Data) throws -> OPMLImportResult {
+        guard data.count <= maxBytes else { throw OPMLImportError.tooLarge }
+        let delegate = OPMLParser()
+        let parser = XMLParser(data: data)
+        parser.shouldResolveExternalEntities = false
+        parser.delegate = delegate
+        guard parser.parse(), delegate.hasRoot, delegate.hasBody else { throw OPMLImportError.invalidDocument }
+        guard !delegate.result.feeds.isEmpty || delegate.result.invalid > 0 else { throw OPMLImportError.noFeeds }
+        return delegate.result
+    }
+
+    func parser(_ parser: XMLParser, didStartElement elementName: String, namespaceURI: String?, qualifiedName qName: String?, attributes: [String: String]) {
+        let name = elementName.lowercased()
+        guard stack.count < 64 else { parser.abortParsing(); return }
+        if stack.isEmpty {
+            guard name == "opml" else { parser.abortParsing(); return }
+            hasRoot = true
+        }
+        if stack == ["opml"], name == "body" { hasBody = true }
+        stack.append(name)
+        guard name == "outline", stack.starts(with: ["opml", "body"]),
+              stack.dropFirst(2).allSatisfy({ $0 == "outline" }) else { return }
+        var normalized: [String: String] = [:]
+        for (key, value) in attributes { normalized[key.lowercased()] = value }
+        guard let rawURL = normalized["xmlurl"] else {
+            if normalized["type"]?.lowercased() == "rss" { result.invalid += 1 }
+            return
+        }
+        guard let url = try? RSSURLs.validated(rawURL, removeFragment: true) else {
+            result.invalid += 1
+            return
+        }
+        guard seen.insert(url.absoluteString).inserted else { result.duplicates += 1; return }
+        let title = [normalized["title"], normalized["text"]].compactMap { $0 }
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.first(where: { !$0.isEmpty })
+        result.feeds.append(RSSFeed(url: url.absoluteString, title: String((title ?? url.host ?? url.absoluteString).prefix(200))))
+    }
+
+    func parser(_ parser: XMLParser, didEndElement elementName: String, namespaceURI: String?, qualifiedName qName: String?) {
+        _ = stack.popLast()
+    }
+
+    func parser(_ parser: XMLParser, foundInternalEntityDeclarationWithName name: String, value: String?) {
+        parser.abortParsing()
+    }
+
+    func parser(_ parser: XMLParser, foundExternalEntityDeclarationWithName name: String, publicID: String?, systemID: String?) {
+        parser.abortParsing()
+    }
+}

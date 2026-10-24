@@ -36,3 +36,16 @@ RSS 2.0 / RSS 1.0 / AtomをXMLParserで解析します。外部エンティテ�
 4. 未読に戻す、フィード削除、オフラインで既読にしてから再接続する操作も確認する。
 
 参考仕様: [Apple iCloud Key-value storage](https://developer.apple.com/documentation/foundation/nsubiquitouskeyvaluestore)、[RSS 2.0](https://www.rssboard.org/rss-2-0-11)、[Atom](https://www.rfc-editor.org/info/rfc4287/)。
+
+## OPMLの取り込み
+
+「RSS」→「フィード管理」→「OPMLをインポート」から、ファイルアプリやiCloud Driveの `.opml` / `.xml` ファイルを選択します。
+
+- 入れ子のフォルダ内の `xmlUrl` も読み取ります。フォルダ階層は保持せず、フィード一覧へ追加します。
+- 同じURLのフィードはスキップし、既存のタイトル・既読状態を保持します。
+- 取り込み時の通信は不要です。登録後に記事を取得し、接続できないフィードも登録を保持します。
+- 追加件数、重複、不正URL、100件の登録上限によるスキップ数を表示します。
+- ファイルは5MB以下に対応します。壊れたXMLやOPML以外のファイルでは登録内容を変更しません。
+- 取り込んだフィード一覧は通常の追加と同じiCloud同期の対象です。
+
+仕様参照: [OPML 2.0](https://opml.org/spec2.opml)。
