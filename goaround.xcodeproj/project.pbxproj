@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A10000000000000000000001 /* WebSiteSettingsSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000002; };
 		B694F54C2C42418000D7B12F /* goaroundApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B694F54B2C42418000D7B12F /* goaroundApp.swift */; };
 		B694F5502C42418200D7B12F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B694F54F2C42418200D7B12F /* Assets.xcassets */; };
 		B694F5532C42418200D7B12F /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B694F5522C42418200D7B12F /* Preview Assets.xcassets */; };
@@ -38,6 +39,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		A10000000000000000000002 /* WebSiteSettingsSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebSiteSettingsSync.swift; sourceTree = "<group>"; };
 		B61CB3A92D69EEB100A38489 /* goaround.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = goaround.xctestplan; sourceTree = "<group>"; };
 		B694F5482C42418000D7B12F /* goaround.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = goaround.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B694F54B2C42418000D7B12F /* goaroundApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = goaroundApp.swift; sourceTree = "<group>"; };
@@ -105,6 +107,7 @@
 			isa = PBXGroup;
 			children = (
 				B694F54B2C42418000D7B12F /* goaroundApp.swift */,
+				A10000000000000000000002 /* WebSiteSettingsSync.swift */,
 				B694F54F2C42418200D7B12F /* Assets.xcassets */,
 				B694F5512C42418200D7B12F /* Preview Content */,
 				B694F5772C4243FF00D7B12F /* SettingsView.swift */,
@@ -277,6 +280,7 @@
 				B694F5782C4243FF00D7B12F /* SettingsView.swift in Sources */,
 				B694F57A2C427B5800D7B12F /* ContentViewSwitcher.swift in Sources */,
 				B694F54C2C42418000D7B12F /* goaroundApp.swift in Sources */,
+				A10000000000000000000001 /* WebSiteSettingsSync.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -438,6 +442,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = goaround/goaround.entitlements;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
@@ -468,6 +473,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = goaround/goaround.entitlements;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;

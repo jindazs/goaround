@@ -281,8 +281,7 @@ enum WebSiteSettingsStore {
         legacyWebSitesData: Data,
         legacyOpenInAppData: Data
     ) -> [WebSiteSetting] {
-        if let saved = try? JSONDecoder().decode([WebSiteSetting].self, from: settingsData),
-           !saved.isEmpty {
+        if let saved = try? JSONDecoder().decode([WebSiteSetting].self, from: settingsData) {
             return uniqueSettings(saved)
         }
 
@@ -336,6 +335,8 @@ struct SettingsView: View {
     @AppStorage("webSiteSettings") private var webSiteSettingsData: Data = Data()
     @AppStorage("isSettingsCompleted") private var isSettingsCompleted: Bool = false
     @State private var webSiteSettings: [WebSiteSetting]
+    @State private var savedSettings: [WebSiteSetting]
+    @ObservedObject private var sync = WebSiteSettingsSync.shared
     @State private var isImportingURLs = false
     @State private var isExportingURLs = false
     @State private var exportDocument = URLListDocument()
@@ -345,7 +346,9 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
 
     init() {
-        _webSiteSettings = State(initialValue: WebSiteSettingsStore.editableSettings())
+        let settings = WebSiteSettingsStore.editableSettings()
+        _webSiteSettings = State(initialValue: settings)
+        _savedSettings = State(initialValue: settings)
     }
 
     var body: some View {
@@ -375,6 +378,15 @@ struct SettingsView: View {
                 }
                 .onMove(perform: moveWebSite)
 
+                Section("iCloud同期") {
+                    Text(sync.message)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                    Text("複数端末で編集した場合は、最後に保存した一覧が反映されます。")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+
                 Section {
                     Button("URL一覧をインポート") {
                         isImportingURLs = true
@@ -399,6 +411,12 @@ struct SettingsView: View {
                 if newValue == .inactive {
                     saveSettings()
                 }
+            }
+            .onChange(of: webSiteSettingsData) { _, _ in
+                guard webSiteSettings == savedSettings else { return }
+                let settings = WebSiteSettingsStore.editableSettings()
+                webSiteSettings = settings
+                savedSettings = settings
             }
             .onDisappear {
                 saveSettings()
@@ -429,13 +447,9 @@ struct SettingsView: View {
     }
 
     private func saveSettings() {
-        let normalized = WebSiteSettingsStore.normalizedForSaving(webSiteSettings)
-
-        if let data = WebSiteSettingsStore.encode(normalized) {
-            webSiteSettingsData = data
-        }
-
-        WebSiteSettingsStore.saveLegacyValues(normalized)
+        guard webSiteSettings != savedSettings else { return }
+        sync.save(webSiteSettings)
+        savedSettings = webSiteSettings
     }
 
     private func completeSettings() {
