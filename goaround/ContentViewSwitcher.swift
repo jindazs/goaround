@@ -11,10 +11,13 @@ struct ContentViewSwitcher: View {
     @AppStorage("isSettingsCompleted") private var isSettingsCompleted: Bool = false
 
     var body: some View {
-        if isSettingsCompleted {
-            ContentView()
-        } else {
-            SettingsView()
+        TabView {
+            Group {
+                if isSettingsCompleted { ContentView() } else { SettingsView() }
+            }
+            .tabItem { Label("ページ", systemImage: "globe") }
+            RSSView()
+                .tabItem { Label("RSS", systemImage: "dot.radiowaves.left.and.right") }
         }
     }
 }

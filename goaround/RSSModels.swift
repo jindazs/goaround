@@ -1,0 +1,191 @@
+import Foundation
+import CryptoKit
+
+struct RSSFeed: Codable, Identifiable, Equatable {
+    var id: String { url }
+    var url: String
+    var title: String
+}
+
+struct RSSArticle: Codable, Identifiable, Equatable {
+    var id: String
+    var feedURL: String
+    var title: String
+    var url: URL?
+    var summary: String
+    var date: Date?
+}
+
+struct RSSChange<Value: Codable & Equatable>: Codable, Equatable {
+    var value: Value
+    var date: Date
+    var revision: String = UUID().uuidString
+
+    func newer(than other: Self) -> Bool {
+        date == other.date ? revision > other.revision : date > other.date
+    }
+}
+
+struct RSSSyncState: Codable, Equatable {
+    var version = 1
+    // Deleted subscriptions remain as tombstones, so an offline device cannot resurrect them.
+    var feeds: [String: RSSChange<RSSFeed?>] = [:]
+    var reads: [String: RSSChange<Bool>] = [:]
+    var readCutoff = Date.distantPast
+
+    mutating func merge(_ other: Self) {
+        feeds.merge(other.feeds) { $1.newer(than: $0) ? $1 : $0 }
+        reads.merge(other.reads) { $1.newer(than: $0) ? $1 : $0 }
+        readCutoff = max(readCutoff, other.readCutoff)
+        compact()
+    }
+
+    mutating func compact() {
+        reads = reads.filter { $0.value.date > readCutoff }
+        let ordered = reads.sorted { $0.value.date > $1.value.date }
+        if ordered.count > 1000 {
+            readCutoff = max(readCutoff, ordered[1000].value.date)
+            reads = reads.filter { $0.value.date > readCutoff }
+        }
+    }
+}
+
+enum RSSFailure: LocalizedError {
+    case invalidURL, invalidFeed, tooLarge, http(Int), limit
+    var errorDescription: String? {
+        switch self {
+        case .invalidURL: return "httpまたはhttpsのRSS/AtomフィードURLを入力してください。"
+        case .invalidFeed: return "RSS/Atomフィードを読み取れませんでした。フィードのURLを確認してください。"
+        case .tooLarge: return "フィードのデータが大きすぎます。"
+        case .http(let code): return "フィードの取得に失敗しました（HTTP \(code)）。"
+        case .limit: return "登録できるフィードは100件までです。"
+        }
+    }
+}
+
+enum RSSURLs {
+    static func validated(_ text: String, removeFragment: Bool = false) throws -> URL {
+        let text = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard text.count <= 2048, var parts = URLComponents(string: text),
+              let scheme = parts.scheme?.lowercased(), ["https", "http"].contains(scheme),
+              let host = parts.host, !host.isEmpty, parts.user == nil, parts.password == nil else {
+            throw RSSFailure.invalidURL
+        }
+        parts.scheme = scheme
+        parts.host = host.lowercased()
+        if removeFragment { parts.fragment = nil }
+        guard let url = parts.url else { throw RSSFailure.invalidURL }
+        return url
+    }
+
+    static func articleID(feed: String, identifier: String) -> String {
+        SHA256.hash(data: Data((feed + "\n" + identifier).utf8)).map { String(format: "%02x", $0) }.joined()
+    }
+}
+
+struct RSSParsedFeed {
+    var title: String
+    var articles: [RSSArticle]
+}
+
+/// RSS 2.0, RSS 1.0 (RDF), and Atom. External XML entities are never resolved.
+final class RSSParser: NSObject, XMLParserDelegate {
+    private let source: URL
+    private var stack: [String] = []
+    private var textStack: [String] = []
+    private var fields: [String: String]?
+    private var articleLink: String?
+    private var title = ""
+    private var articles: [RSSArticle] = []
+    private var recognized = false
+
+    init(source: URL) { self.source = source }
+
+    static func parse(_ data: Data, source: URL) throws -> RSSParsedFeed {
+        guard data.count <= 5_000_000 else { throw RSSFailure.tooLarge }
+        let delegate = RSSParser(source: source)
+        let parser = XMLParser(data: data)
+        parser.shouldResolveExternalEntities = false
+        parser.delegate = delegate
+        guard parser.parse(), delegate.recognized else { throw RSSFailure.invalidFeed }
+        return RSSParsedFeed(title: delegate.title.isEmpty ? (source.host ?? source.absoluteString) : delegate.title,
+                             articles: delegate.articles)
+    }
+
+    func parser(_ parser: XMLParser, didStartElement elementName: String, namespaceURI: String?, qualifiedName qName: String?, attributes: [String: String]) {
+        let name = elementName.components(separatedBy: ":").last!.lowercased()
+        if stack.isEmpty { recognized = ["rss", "rdf", "feed"].contains(name) }
+        guard stack.count < 64 else { parser.abortParsing(); return }
+        stack.append(name)
+        textStack.append("")
+        if name == "item" || name == "entry" { fields = [:]; articleLink = nil }
+        if fields != nil, name == "link", let href = attributes["href"],
+           attributes["rel"] == nil || attributes["rel"] == "alternate" { articleLink = href }
+    }
+
+    func parser(_ parser: XMLParser, foundCharacters string: String) {
+        if !textStack.isEmpty { textStack[textStack.count - 1] += string }
+    }
+    func parser(_ parser: XMLParser, foundCDATA CDATABlock: Data) {
+        self.parser(parser, foundCharacters: String(decoding: CDATABlock, as: UTF8.self))
+    }
+
+    func parser(_ parser: XMLParser, didEndElement elementName: String, namespaceURI: String?, qualifiedName qName: String?) {
+        guard let name = stack.popLast(), let raw = textStack.popLast() else { return }
+        let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !textStack.isEmpty { textStack[textStack.count - 1] += raw }
+        if name == "item" || name == "entry" {
+            if let fields, articles.count < 200 {
+                let link = articleLink ?? fields["link"] ?? ""
+                let resolved = link.isEmpty ? nil : URL(string: link, relativeTo: source)?.absoluteURL
+                let url = resolved.flatMap { try? RSSURLs.validated($0.absoluteString) }
+                let heading = String(Self.plain(fields["title"] ?? "無題の記事").prefix(500))
+                let identity = fields["guid"] ?? fields["id"] ?? url?.absoluteString ?? (heading + (fields["pubdate"] ?? fields["published"] ?? ""))
+                let article = RSSArticle(id: RSSURLs.articleID(feed: source.absoluteString, identifier: identity),
+                                         feedURL: source.absoluteString, title: heading, url: url,
+                                         summary: String(Self.plain(fields["description"] ?? fields["summary"] ?? fields["encoded"] ?? fields["content"] ?? "").prefix(1000)),
+                                         date: Self.date(fields["pubdate"] ?? fields["published"] ?? fields["updated"] ?? fields["date"] ?? ""))
+                if !articles.contains(where: { $0.id == article.id }) { articles.append(article) }
+            }
+            fields = nil
+        } else if fields != nil, ["item", "entry"].contains(stack.last ?? "") {
+            fields?[name] = text
+        } else if fields == nil, name == "title", ["channel", "feed"].contains(stack.last ?? "") {
+            title = String(Self.plain(text).prefix(200))
+        }
+    }
+
+    private static func plain(_ text: String) -> String {
+        text.replacingOccurrences(of: "<[^>]+>", with: " ", options: .regularExpression)
+            .replacingOccurrences(of: "&lt;", with: "<").replacingOccurrences(of: "&gt;", with: ">")
+            .replacingOccurrences(of: "&quot;", with: "\"").replacingOccurrences(of: "&#39;", with: "'")
+            .replacingOccurrences(of: "&nbsp;", with: " ").replacingOccurrences(of: "&amp;", with: "&")
+            .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+    private static func date(_ text: String) -> Date? {
+        let iso = ISO8601DateFormatter()
+        if let date = iso.date(from: text) { return date }
+        iso.formatOptions.insert(.withFractionalSeconds)
+        if let date = iso.date(from: text) { return date }
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        for format in ["EEE, dd MMM yyyy HH:mm:ss Z", "dd MMM yyyy HH:mm:ss Z", "EEE, dd MMM yyyy HH:mm Z"] {
+            formatter.dateFormat = format
+            if let date = formatter.date(from: text) { return date }
+        }
+        return nil
+    }
+}
+
+enum RSSClient {
+    static func fetch(_ url: URL) async throws -> RSSParsedFeed {
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 25
+        request.setValue("application/rss+xml, application/atom+xml, application/xml, text/xml", forHTTPHeaderField: "Accept")
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let response = response as? HTTPURLResponse else { throw RSSFailure.invalidFeed }
+        guard (200..<300).contains(response.statusCode) else { throw RSSFailure.http(response.statusCode) }
+        return try RSSParser.parse(data, source: url)
+    }
+}

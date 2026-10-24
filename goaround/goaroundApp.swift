@@ -12,13 +12,17 @@ struct goaroundApp: App {
 
     init() {
         WebSiteSettingsSync.shared.start()
+        RSSStore.shared.start()
     }
 
     var body: some Scene {
         WindowGroup {
             ContentViewSwitcher()
                 .onChange(of: scenePhase) { _, phase in
-                    if phase == .active { WebSiteSettingsSync.shared.refresh() }
+                    if phase == .active {
+                        WebSiteSettingsSync.shared.refresh()
+                        RSSStore.shared.synchronize()
+                    }
                 }
         }
     }

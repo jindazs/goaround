@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A20000000000000000000006 /* RSSView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000005; };
+		A20000000000000000000004 /* RSSStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000003; };
+		A20000000000000000000002 /* RSSModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000001; };
 		A10000000000000000000001 /* WebSiteSettingsSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000002; };
 		B694F54C2C42418000D7B12F /* goaroundApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B694F54B2C42418000D7B12F /* goaroundApp.swift */; };
 		B694F5502C42418200D7B12F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B694F54F2C42418200D7B12F /* Assets.xcassets */; };
@@ -39,6 +42,9 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		A20000000000000000000005 /* RSSView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RSSView.swift; sourceTree = "<group>"; };
+		A20000000000000000000003 /* RSSStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RSSStore.swift; sourceTree = "<group>"; };
+		A20000000000000000000001 /* RSSModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RSSModels.swift; sourceTree = "<group>"; };
 		A10000000000000000000002 /* WebSiteSettingsSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebSiteSettingsSync.swift; sourceTree = "<group>"; };
 		B61CB3A92D69EEB100A38489 /* goaround.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = goaround.xctestplan; sourceTree = "<group>"; };
 		B694F5482C42418000D7B12F /* goaround.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = goaround.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -107,6 +113,9 @@
 			isa = PBXGroup;
 			children = (
 				B694F54B2C42418000D7B12F /* goaroundApp.swift */,
+				A20000000000000000000005 /* RSSView.swift */,
+				A20000000000000000000003 /* RSSStore.swift */,
+				A20000000000000000000001 /* RSSModels.swift */,
 				A10000000000000000000002 /* WebSiteSettingsSync.swift */,
 				B694F54F2C42418200D7B12F /* Assets.xcassets */,
 				B694F5512C42418200D7B12F /* Preview Content */,
@@ -280,6 +289,9 @@
 				B694F5782C4243FF00D7B12F /* SettingsView.swift in Sources */,
 				B694F57A2C427B5800D7B12F /* ContentViewSwitcher.swift in Sources */,
 				B694F54C2C42418000D7B12F /* goaroundApp.swift in Sources */,
+				A20000000000000000000006 /* RSSView.swift in Sources */,
+				A20000000000000000000004 /* RSSStore.swift in Sources */,
+				A20000000000000000000002 /* RSSModels.swift in Sources */,
 				A10000000000000000000001 /* WebSiteSettingsSync.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

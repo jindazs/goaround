@@ -192,3 +192,142 @@ private final class MemoryCloudStore: NSObject, SettingsCloudStore {
     func set(_ value: Data?, forKey key: String) { self.value = value }
     func synchronize() -> Bool { true }
 }
+
+final class RSSParserTests: XCTestCase {
+    private let source = URL(string: "https://example.com/feed.xml")!
+
+    func testRSSParsesCDATAStableGUIDDateAndLink() throws {
+        let xml = """
+        <rss version="2.0"><channel><title>Example &amp; News</title>
+        <item><guid isPermaLink="false">stable-id</guid><title>First</title>
+        <link>https://example.com/article#section</link>
+        <description><![CDATA[<p>Hello &amp; world</p>]]></description>
+        <pubDate>Sat, 24 Oct 2026 12:00:00 GMT</pubDate></item>
+        </channel></rss>
+        """
+        let parsed = try RSSParser.parse(Data(xml.utf8), source: source)
+        XCTAssertEqual(parsed.title, "Example & News")
+        XCTAssertEqual(parsed.articles.count, 1)
+        XCTAssertEqual(parsed.articles[0].summary, "Hello & world")
+        XCTAssertEqual(parsed.articles[0].url?.fragment, "section")
+        XCTAssertNotNil(parsed.articles[0].date)
+        let edited = try RSSParser.parse(Data(xml.replacingOccurrences(of: "First", with: "Edited").utf8), source: source)
+        XCTAssertEqual(edited.articles[0].id, parsed.articles[0].id)
+    }
+
+    func testAtomParsesAlternateLinkNestedSummaryAndDate() throws {
+        let xml = """
+        <feed xmlns="http://www.w3.org/2005/Atom"><title>Atom</title>
+        <entry><id>urn:article:1</id><title>Entry</title>
+        <link rel="self" href="/entry.atom"/><link rel="alternate" href="/entry"/>
+        <updated>2026-10-24T12:30:00.123Z</updated>
+        <summary type="xhtml"><div xmlns="http://www.w3.org/1999/xhtml">Hello <b>world</b></div></summary>
+        </entry></feed>
+        """
+        let parsed = try RSSParser.parse(Data(xml.utf8), source: source)
+        XCTAssertEqual(parsed.articles[0].url?.absoluteString, "https://example.com/entry")
+        XCTAssertEqual(parsed.articles[0].summary, "Hello world")
+        XCTAssertNotNil(parsed.articles[0].date)
+    }
+
+    func testRejectsHTMLAndMalformedXMLAndUnsafeURLs() throws {
+        XCTAssertThrowsError(try RSSParser.parse(Data("<html><body>Not a feed</body></html>".utf8), source: source))
+        XCTAssertThrowsError(try RSSParser.parse(Data("<rss><channel>".utf8), source: source))
+        XCTAssertThrowsError(try RSSURLs.validated("javascript:alert(1)"))
+        XCTAssertThrowsError(try RSSURLs.validated("https://user:password@example.com/feed"))
+        let parsed = try RSSParser.parse(Data("<rss><channel><item><title>No link</title></item></channel></rss>".utf8), source: source)
+        XCTAssertNil(parsed.articles[0].url)
+    }
+
+    func testEmptyFeedAndDuplicateIDs() throws {
+        XCTAssertTrue(try RSSParser.parse(Data("<feed/>".utf8), source: source).articles.isEmpty)
+        let parsed = try RSSParser.parse(Data("<rss><channel><item><guid>1</guid><title>A</title></item><item><guid>1</guid><title>B</title></item></channel></rss>".utf8), source: source)
+        XCTAssertEqual(parsed.articles.count, 1)
+        XCTAssertNotEqual(RSSURLs.articleID(feed: "a", identifier: "1"), RSSURLs.articleID(feed: "b", identifier: "1"))
+    }
+}
+
+final class RSSSyncTests: XCTestCase {
+    func testOfflineChangesMergeAndDeletionWinsWithoutLosingOtherReads() {
+        let old = Date(timeIntervalSince1970: 100)
+        let new = Date(timeIntervalSince1970: 200)
+        let feed = RSSFeed(url: "https://example.com/feed", title: "Example")
+        var a = RSSSyncState()
+        a.feeds[feed.url] = RSSChange(value: feed, date: old)
+        a.reads["article-a"] = RSSChange(value: true, date: old)
+        var b = RSSSyncState()
+        b.feeds[feed.url] = RSSChange(value: nil, date: new)
+        b.reads["article-b"] = RSSChange(value: true, date: new)
+        b.reads["article-a"] = RSSChange(value: false, date: new)
+        var mergedA = a
+        mergedA.merge(b)
+        var mergedB = b
+        mergedB.merge(a)
+        XCTAssertEqual(mergedA, mergedB)
+        XCTAssertNil(mergedA.feeds[feed.url]?.value)
+        XCTAssertEqual(mergedA.reads["article-a"]?.value, false)
+        XCTAssertEqual(mergedA.reads["article-b"]?.value, true)
+    }
+
+    func testCompactionCannotRestoreExpiredReadHistoryFromOfflineDevice() {
+        var state = RSSSyncState()
+        for index in 1...1005 {
+            state.reads[String(index)] = RSSChange(value: true, date: Date(timeIntervalSince1970: Double(index)))
+        }
+        let stale = state
+        state.compact()
+        XCTAssertEqual(state.reads.count, 1000)
+        XCTAssertNil(state.reads["1"])
+        state.merge(stale)
+        XCTAssertEqual(state.reads.count, 1000)
+        XCTAssertNil(state.reads["1"])
+    }
+
+    func testSameTimestampConflictConverges() {
+        let date = Date()
+        var a = RSSSyncState()
+        var b = RSSSyncState()
+        a.reads["article"] = RSSChange(value: true, date: date, revision: "a")
+        b.reads["article"] = RSSChange(value: false, date: date, revision: "b")
+        var result = a
+        result.merge(b)
+        b.merge(a)
+        XCTAssertEqual(result, b)
+        XCTAssertEqual(result.reads["article"]?.value, false)
+    }
+
+    @MainActor
+    func testStoresPersistSyncAndIsolateAccountChanges() throws {
+        let name = "RSSTests." + UUID().uuidString
+        let defaults = UserDefaults(suiteName: name)!
+        defer { defaults.removePersistentDomain(forName: name) }
+        let cloud = MemoryCloudStore()
+        var remote = RSSSyncState()
+        let feed = RSSFeed(url: "https://example.com/feed", title: "Example")
+        remote.feeds[feed.url] = RSSChange(value: feed, date: Date())
+        cloud.value = try JSONEncoder().encode(remote)
+        let store = RSSStore(defaults: defaults, cloud: cloud, cacheURL: nil)
+        store.reconcile()
+        XCTAssertEqual(store.feeds, [feed])
+        let article = RSSArticle(id: "a", feedURL: feed.url, title: "A", summary: "")
+        store.setRead(true, articles: [article])
+        XCTAssertTrue(store.isRead(article))
+        let restored = RSSStore(defaults: defaults, cloud: cloud, cacheURL: nil)
+        XCTAssertTrue(restored.isRead(article))
+        var pending = try JSONDecoder().decode(RSSSyncState.self, from: XCTUnwrap(cloud.value))
+        pending.reads["another-device"] = RSSChange(value: true, date: Date())
+        cloud.value = try JSONEncoder().encode(pending)
+        store.setRead(false, articles: [article])
+        XCTAssertEqual(store.state.reads["another-device"]?.value, true)
+        XCTAssertFalse(store.isRead(article))
+        store.removeFeed(feed)
+        restored.reconcile()
+        XCTAssertTrue(restored.feeds.isEmpty)
+        cloud.value = nil
+        store.cloudChanged(reason: NSUbiquitousKeyValueStoreAccountChange)
+        store.reconcile()
+        XCTAssertTrue(store.feeds.isEmpty)
+        XCTAssertFalse(store.isRead(article))
+        XCTAssertNil(cloud.value)
+    }
+}

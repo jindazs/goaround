@@ -23,6 +23,25 @@ final class goaroundUITests: XCTestCase {
         // Use XCTAssert and related functions to verify your tests produce the correct results.
     }
 
+    func testRSSNavigationAndInvalidFeedURL() throws {
+        let app = XCUIApplication()
+        app.launch()
+        let rssTab = app.tabBars.buttons["RSS"]
+        XCTAssertTrue(rssTab.waitForExistence(timeout: 10))
+        rssTab.tap()
+        app.buttons["フィード管理"].tap()
+        let field = app.textFields["rssFeedURL"]
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.tap()
+        field.typeText("not-a-feed-url")
+        app.buttons["追加"].tap()
+        XCTAssertTrue(app.staticTexts["httpまたはhttpsのRSS/AtomフィードURLを入力してください。"].waitForExistence(timeout: 5))
+        app.buttons["完了"].tap()
+        XCTAssertTrue(app.switches["未読のみ"].exists)
+        app.tabBars.buttons["ページ"].tap()
+        XCTAssertTrue(app.tabBars.buttons["RSS"].exists)
+    }
+
     func testLaunchPerformance() throws {
         if #available(macOS 10.15, iOS 13.0, tvOS 13.0, watchOS 7.0, *) {
             // This measures how long it takes to launch your application.
