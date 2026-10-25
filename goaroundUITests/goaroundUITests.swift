@@ -94,6 +94,33 @@ final class goaroundUITests: XCTestCase {
         add(attachment)
     }
 
+    func testUnreadArticleIsMarkedReadAfterItsSheetAppears() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["--reader-ui-fixture"]
+        app.launch()
+        app.tabBars.buttons["RSS"].tap()
+        app.buttons["RSSメニュー"].tap()
+        app.buttons["未読のみ"].tap()
+        let article = app.staticTexts["端末内で読める記事"]
+        XCTAssertTrue(article.waitForExistence(timeout: 5))
+        article.tap()
+        XCTAssertTrue(app.staticTexts["保存済みの本文"].waitForExistence(timeout: 5))
+        app.buttons["閉じる"].tap()
+        XCTAssertTrue(app.staticTexts["記事がありません"].waitForExistence(timeout: 5))
+    }
+
+    func testMarkAllArticlesReadMenu() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["--reader-ui-fixture"]
+        app.launch()
+        app.tabBars.buttons["RSS"].tap()
+        app.buttons["RSSメニュー"].tap()
+        app.buttons["すべての記事を既読にする"].tap()
+        app.buttons["RSSメニュー"].tap()
+        app.buttons["未読のみ"].tap()
+        XCTAssertTrue(app.staticTexts["記事がありません"].waitForExistence(timeout: 5))
+    }
+
     func testLaunchPerformance() throws {
         if #available(macOS 10.15, iOS 13.0, tvOS 13.0, watchOS 7.0, *) {
             // This measures how long it takes to launch your application.

@@ -586,7 +586,7 @@ final class ArticleContentTests: XCTestCase {
             fetchContent: { _ in await calls.increment(); throw ArticleContentError.noBody })
         store.prepareToRead(article)
         XCTAssertEqual(store.articleContents[article.id], content)
-        XCTAssertTrue(store.isRead(article))
+        XCTAssertFalse(store.isRead(article), "Preparing local content must not remove the row before the sheet appears")
         let count = await calls.count
         XCTAssertEqual(count, 0)
     }

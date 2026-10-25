@@ -100,6 +100,9 @@ struct RSSView: View {
                         Button("表示中の記事をすべて既読にする", systemImage: "checkmark.circle") {
                             store.setRead(true, articles: visibleArticles)
                         }.disabled(visibleArticles.isEmpty)
+                        Button("すべての記事を既読にする", systemImage: "checkmark.circle.fill") {
+                            store.setRead(true, articles: store.articles)
+                        }.disabled(store.articles.isEmpty)
                     } label: { Image(systemName: "ellipsis.circle") }
                     .accessibilityLabel("RSSメニュー")
                 }
@@ -285,6 +288,13 @@ private struct ArticleReaderView: View {
             }
             .navigationTitle("記事")
             .navigationBarTitleDisplayMode(.inline)
+            .task(id: article.id) {
+                // Let the sheet finish presenting before removing its row from the unread list.
+                do { try await Task.sleep(for: .milliseconds(650)) }
+                catch { return }
+                guard !Task.isCancelled else { return }
+                store.setRead(true, articles: [article])
+            }
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) { Button("閉じる") { dismiss() } }
                 ToolbarItem(placement: .topBarTrailing) {

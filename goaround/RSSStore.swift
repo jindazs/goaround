@@ -229,7 +229,6 @@ final class RSSStore: ObservableObject {
         if articleContents[article.id] == nil, let content = contentCache.load(article) {
             articleContents[article.id] = content
         }
-        setRead(true, articles: [article])
     }
 
     func scheduleContentPrefetch() {
