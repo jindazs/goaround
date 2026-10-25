@@ -520,3 +520,131 @@ final class WebsiteRenderingTests: XCTestCase {
         } catch { XCTAssertTrue(error is CancellationError) }
     }
 }
+
+final class ArticleContentTests: XCTestCase {
+    private let page = URL(string: "https://example.com/article")!
+    private var paragraph: String { "記事の本文です。広告やナビゲーションを取り除き、端末の中で読みやすい形式に整えます。見出しと段落、リスト、引用を保持して保存します。インターネットへの接続をせずに何度でも読むことができます。" }
+
+    func testBodyExtractionKeepsStructureAndRemovesNavigationAndScripts() throws {
+        let html = """
+        <title>Page</title><meta name='author' content='Author'><nav><p>Ignore navigation</p></nav>
+        <article><h1>Article title</h1><div class='article-body'><h2>Section</h2><p>\(paragraph)</p>
+        <blockquote><p>Quoted text</p></blockquote><ul><li>One item</li></ul>
+        <img src='/image.png' alt='Photo'><img src='/image.png'>
+        <script>malicious()</script><div class='related'><p>Related article</p></div></div></article>
+        """
+        let content = try ArticleContentParser.parse(html, articleID: "article", pageURL: page)
+        XCTAssertEqual(content.title, "Article title")
+        XCTAssertEqual(content.author, "Author")
+        XCTAssertEqual(content.blocks.filter { $0.kind == .quote }.map(\.text), ["Quoted text"])
+        XCTAssertEqual(content.blocks.filter { $0.kind == .image }.count, 1)
+        XCTAssertEqual(content.blocks.first { $0.kind == .image }?.imageURL?.absoluteString, "https://example.com/image.png")
+        XCTAssertFalse(content.blocks.contains { $0.text.contains("Related article") || $0.text.contains("Ignore navigation") || $0.text.contains("malicious") })
+    }
+
+    func testHTTPPrefetchBuildsNativeBlocksAndRejectsBinaryFiles() async throws {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [ReaderResponseProtocol.self]
+        let session = URLSession(configuration: configuration)
+        defer { session.invalidateAndCancel() }
+        let article = RSSArticle(id: "http-body", feedURL: "feed", title: "Article", url: URL(string: "https://reader-response.invalid/article")!, summary: "")
+        let content = try await ArticleContentClient.fetch(article, session: session)
+        XCTAssertTrue(content.blocks.contains { $0.text.contains("事前取得した本文") })
+        var binary = article
+        binary.url = URL(string: "https://reader-response.invalid/document.pdf")!
+        do {
+            _ = try await ArticleContentClient.fetch(binary, session: session)
+            XCTFail("Binary documents must not be parsed as article HTML")
+        } catch { XCTAssertTrue(error is ArticleContentError) }
+    }
+
+    func testRejectsEmptyBodyAndRoundTripsImageDataOnDisk() throws {
+        XCTAssertThrowsError(try ArticleContentParser.parse("<nav>Links</nav><p>Empty</p>", articleID: "empty", pageURL: page))
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let cache = ArticleContentCache(directory: directory)
+        let article = RSSArticle(id: "../../article", feedURL: "feed", title: "Title", url: page, summary: "Summary")
+        let content = ArticleContent(articleID: article.id, sourceURL: page, title: "Title", blocks: [.init(kind: .paragraph, text: paragraph), .init(kind: .image, text: "Photo", imageData: Data([1, 2, 3]))])
+        cache.save(content)
+        XCTAssertEqual(cache.load(article), content)
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: directory.path).count, 1)
+    }
+
+    @MainActor
+    func testOpeningAnArticleReadsDiskAndNeverStartsFetching() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let cache = ArticleContentCache(directory: root)
+        let article = RSSArticle(id: "offline", feedURL: "feed", title: "Offline", url: page, summary: "Summary")
+        let content = ArticleContent(articleID: article.id, sourceURL: page, title: article.title, blocks: [.init(kind: .paragraph, text: paragraph)])
+        cache.save(content)
+        let calls = ReaderFetchCounter()
+        let suite = "ReaderTests." + UUID().uuidString
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let store = RSSStore(defaults: defaults, cloud: MemoryCloudStore(), cacheURL: nil, contentCache: cache,
+            fetchContent: { _ in await calls.increment(); throw ArticleContentError.noBody })
+        store.prepareToRead(article)
+        XCTAssertEqual(store.articleContents[article.id], content)
+        XCTAssertTrue(store.isRead(article))
+        let count = await calls.count
+        XCTAssertEqual(count, 0)
+    }
+
+    @MainActor
+    func testPrefetchSavesBodyBeforeOpeningAndSurvivesRestart() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let list = root.appendingPathComponent("articles.json")
+        let cache = ArticleContentCache(directory: root.appendingPathComponent("content"))
+        let article = RSSArticle(id: "prefetched", feedURL: "https://example.com/feed", title: "Saved", url: page, summary: "Summary")
+        try JSONEncoder().encode([article]).write(to: list)
+        let suite = "ReaderTests." + UUID().uuidString
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        var state = RSSSyncState()
+        state.feeds[article.feedURL] = RSSChange(value: RSSFeed(url: article.feedURL, title: "Feed"), date: Date())
+        defaults.set(try JSONEncoder().encode(state), forKey: RSSStore.localKey)
+        let content = ArticleContent(articleID: article.id, sourceURL: page, title: article.title, blocks: [.init(kind: .paragraph, text: paragraph)])
+        let store = RSSStore(defaults: defaults, cloud: MemoryCloudStore(), cacheURL: list, contentCache: cache, fetchContent: { _ in content })
+        store.scheduleContentPrefetch()
+        for _ in 0..<100 where store.articleContents[article.id] == nil { try await Task.sleep(nanoseconds: 10_000_000) }
+        XCTAssertEqual(store.articleContents[article.id], content)
+        XCTAssertEqual(cache.load(article), content)
+        let restored = RSSStore(defaults: defaults, cloud: MemoryCloudStore(), cacheURL: list, contentCache: cache)
+        XCTAssertEqual(restored.articleContents[article.id], content)
+    }
+}
+
+private actor ReaderFetchCounter {
+    private(set) var count = 0
+    func increment() { count += 1 }
+}
+
+final class ArticleBodyRenderingTests: XCTestCase {
+    @MainActor
+    func testJavaScriptBodyIsPrefetchedAsNativeBlocks() async throws {
+        let url = URL(string: "https://example.com/article")!
+        let article = RSSArticle(id: "dynamic-body", feedURL: "feed", title: "Dynamic", url: url, summary: "")
+        let text = String(repeating: "これはJavaScriptで生成される記事本文です。", count: 8)
+        let html = "<title>Dynamic</title><article id='body'></article><script>setTimeout(function(){document.getElementById('body').innerHTML='<h2>本文の見出し</h2><p>\(text)</p>';},100);</script>"
+        let content = try await ArticleBodyRenderer.fetch(article: article, url: url, html: html)
+        XCTAssertEqual(content.blocks.first?.text, "本文の見出し")
+        XCTAssertTrue(content.blocks.contains { $0.text == text })
+    }
+}
+
+private final class ReaderResponseProtocol: URLProtocol {
+    override class func canInit(with request: URLRequest) -> Bool { request.url?.host == "reader-response.invalid" }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func startLoading() {
+        let binary = request.url!.pathExtension == "pdf"
+        let body = binary ? "%PDF-binary" : "<html><title>Article</title><article><p>" + String(repeating: "事前取得した本文を端末に保存します。", count: 12) + "</p></article></html>"
+        let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: "HTTP/1.1", headerFields: ["Content-Type": binary ? "application/pdf" : "text/html; charset=utf-8"])!
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: Data(body.utf8))
+        client?.urlProtocolDidFinishLoading(self)
+    }
+    override func stopLoading() {}
+}

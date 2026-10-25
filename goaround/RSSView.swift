@@ -8,6 +8,7 @@ struct RSSView: View {
     @State private var selectedFeed = ""
     @State private var search = ""
     @State private var showFeeds = false
+    @State private var showSearch = false
     @State private var selectedArticle: RSSArticle?
 
     private var visibleArticles: [RSSArticle] {
@@ -21,16 +22,6 @@ struct RSSView: View {
     var body: some View {
         NavigationStack {
             List {
-                Section {
-                    Picker("フィード", selection: $selectedFeed) {
-                        Text("すべてのフィード").tag("")
-                        ForEach(store.feeds) { Text($0.title).tag($0.url) }
-                    }
-                    Toggle("未読のみ", isOn: $unreadOnly)
-                }
-                if store.isRefreshing {
-                    HStack { ProgressView(); Text("フィードを更新中…").foregroundStyle(.secondary) }
-                }
                 if !store.errors.isEmpty {
                     Section("取得できなかったフィード") {
                         ForEach(store.errors.keys.sorted(), id: \.self) { url in
@@ -55,7 +46,7 @@ struct RSSView: View {
                 ForEach(visibleArticles) { article in
                     Button {
                         selectedArticle = article
-                        store.setRead(true, articles: [article])
+                        store.prepareToRead(article)
                     } label: {
                         HStack(alignment: .top, spacing: 10) {
                             Circle().fill(store.isRead(article) ? Color.clear : Color.accentColor)
@@ -84,34 +75,51 @@ struct RSSView: View {
                 }
             }
             .navigationTitle("RSS")
-            .searchable(text: $search, prompt: "記事を検索")
             .refreshable { await store.refresh() }
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button { showFeeds = true } label: { Label("フィード管理", systemImage: "list.bullet") }
-                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
-                        Button("更新", systemImage: "arrow.clockwise") { Task { await store.refresh() } }
+                        Button("フィード管理", systemImage: "list.bullet") { showFeeds = true }
+                        Button(search.isEmpty ? "記事を検索" : "検索：\(search)", systemImage: "magnifyingglass") { showSearch = true }
+                        Picker("フィード", selection: $selectedFeed) {
+                            Text("すべてのフィード").tag("")
+                            ForEach(store.feeds) { Text($0.title).tag($0.url) }
+                        }
+                        Toggle("未読のみ", isOn: $unreadOnly)
+                        if !search.isEmpty || !selectedFeed.isEmpty || unreadOnly {
+                            Button("絞り込みを解除", systemImage: "line.3.horizontal.decrease.circle") {
+                                search = ""; selectedFeed = ""; unreadOnly = false
+                            }
+                        }
+                        Divider()
+                        if store.contentPendingCount > 0 {
+                            Text("本文を先読み中（残り\(store.contentPendingCount)件）")
+                        }
+                        Button(store.isRefreshing ? "更新中…" : "更新", systemImage: "arrow.clockwise") { Task { await store.refresh() } }
+                            .disabled(store.isRefreshing)
                         Button("表示中の記事をすべて既読にする", systemImage: "checkmark.circle") {
                             store.setRead(true, articles: visibleArticles)
                         }.disabled(visibleArticles.isEmpty)
                     } label: { Image(systemName: "ellipsis.circle") }
+                    .accessibilityLabel("RSSメニュー")
                 }
             }
             .sheet(isPresented: $showFeeds) { RSSFeedsView(store: store) }
-            .sheet(item: $selectedArticle) { article in
-                if let url = article.url {
-                    RSSBrowser(url: url).ignoresSafeArea()
-                } else {
-                    NavigationStack {
-                        ScrollView { VStack(alignment: .leading, spacing: 16) {
-                            Text(article.title).font(.title2.bold())
-                            Text(article.summary)
-                        }.padding() }
-                        .toolbar { Button("閉じる") { selectedArticle = nil } }
+            .sheet(isPresented: $showSearch) {
+                NavigationStack {
+                    Form {
+                        TextField("記事を検索", text: $search)
+                            .textInputAutocapitalization(.never)
+                            .accessibilityIdentifier("rssSearchQuery")
+                        Text("\(visibleArticles.count)件の記事が一致します")
+                        Button("検索をクリア") { search = "" }
                     }
+                    .navigationTitle("記事を検索")
+                    .toolbar { Button("適用") { showSearch = false } }
                 }
+            }
+            .sheet(item: $selectedArticle) { article in
+                ArticleReaderView(article: article, store: store)
             }
             .task(id: store.feeds) { await store.refresh() }
             .onChange(of: store.feeds) { _, feeds in
@@ -230,8 +238,79 @@ private struct RSSFeedsView: View {
     }
 }
 
-private struct RSSBrowser: UIViewControllerRepresentable {
+struct RSSBrowser: UIViewControllerRepresentable {
     let url: URL
     func makeUIViewController(context: Context) -> SFSafariViewController { SFSafariViewController(url: url) }
     func updateUIViewController(_ controller: SFSafariViewController, context: Context) {}
+}
+
+private struct ArticleReaderView: View {
+    let article: RSSArticle
+    @ObservedObject var store: RSSStore
+    @Environment(\.dismiss) private var dismiss
+    @State private var showOriginal = false
+    private var content: ArticleContent? { store.articleContents[article.id] }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    Text(content?.title.isEmpty == false ? content!.title : article.title)
+                        .font(.title.bold()).accessibilityIdentifier("readerTitle")
+                    HStack {
+                        Text(store.feeds.first(where: { $0.url == article.feedURL })?.title ?? article.url?.host ?? "")
+                        if let date = article.date { Text(date, style: .date) }
+                    }.font(.caption).foregroundStyle(.secondary)
+                    if let author = content?.author, !author.isEmpty { Text(author).font(.subheadline).foregroundStyle(.secondary) }
+                    if let content {
+                        ForEach(Array(content.blocks.enumerated()), id: \.offset) { _, block in
+                            readerBlock(block)
+                        }
+                        Text("端末に保存した記事を表示しています。")
+                            .font(.caption).foregroundStyle(.secondary)
+                    } else {
+                        if !article.summary.isEmpty { Text(article.summary).font(.body).lineSpacing(6) }
+                        Text(store.contentErrors[article.id] != nil
+                             ? "本文を先読みできなかったため、保存済みの要約を表示しています。"
+                             : store.contentPendingCount > 0
+                             ? "本文を先読み中です。現在は保存済みの要約を表示しています。"
+                             : "保存済みの要約を表示しています。本文は更新時に新しい記事から先読みします。")
+                            .font(.footnote).foregroundStyle(.secondary)
+                    }
+                }
+                .frame(maxWidth: 720, alignment: .leading)
+                .padding(24)
+                .frame(maxWidth: .infinity)
+                .textSelection(.enabled)
+            }
+            .navigationTitle("記事")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) { Button("閉じる") { dismiss() } }
+                ToolbarItem(placement: .topBarTrailing) {
+                    if article.url != nil {
+                        Button { showOriginal = true } label: { Label("元の記事を開く", systemImage: "safari") }
+                    }
+                }
+            }
+            .sheet(isPresented: $showOriginal) {
+                if let url = article.url { RSSBrowser(url: url).ignoresSafeArea() }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func readerBlock(_ block: ArticleContent.Block) -> some View {
+        switch block.kind {
+        case .heading: Text(block.text).font(.title2.bold())
+        case .paragraph: Text(block.text).font(.body).lineSpacing(6)
+        case .listItem: HStack(alignment: .top) { Text("•"); Text(block.text).lineSpacing(5) }
+        case .quote: Text(block.text).italic().foregroundStyle(.secondary).padding(.leading, 16)
+        case .code: Text(block.text).font(.system(.footnote, design: .monospaced)).padding(12).background(.quaternary).clipShape(RoundedRectangle(cornerRadius: 8))
+        case .image:
+            if let data = block.imageData, let image = UIImage(data: data) {
+                Image(uiImage: image).resizable().scaledToFit().accessibilityLabel(block.text)
+            } else if !block.text.isEmpty { Text(block.text).font(.caption).foregroundStyle(.secondary) }
+        }
+    }
 }

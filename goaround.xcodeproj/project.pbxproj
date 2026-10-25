@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+        A40000000000000000000001 /* ArticleContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40000000000000000000002; };
         A30000000000000000000006 /* SwiftSoup-LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = A30000000000000000000007; };
         A30000000000000000000001 /* WebsiteArticles.swift in Sources */ = {isa = PBXBuildFile; fileRef = A30000000000000000000002; };
         A30000000000000000000003 /* SwiftSoup in Frameworks */ = {isa = PBXBuildFile; productRef = A30000000000000000000004; };
@@ -45,6 +46,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+        A40000000000000000000002 /* ArticleContent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArticleContent.swift; sourceTree = "<group>"; };
         A30000000000000000000007 /* SwiftSoup-LICENSE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "SwiftSoup-LICENSE.txt"; sourceTree = "<group>"; };
         A30000000000000000000002 /* WebsiteArticles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebsiteArticles.swift; sourceTree = "<group>"; };
 		A20000000000000000000005 /* RSSView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RSSView.swift; sourceTree = "<group>"; };
@@ -119,6 +121,7 @@
 			isa = PBXGroup;
 			children = (
 				B694F54B2C42418000D7B12F /* goaroundApp.swift */,
+                A40000000000000000000002 /* ArticleContent.swift */,
                 A30000000000000000000007 /* SwiftSoup-LICENSE.txt */,
                 A30000000000000000000002 /* WebsiteArticles.swift */,
 				A20000000000000000000005 /* RSSView.swift */,
@@ -300,6 +303,7 @@
 				B694F5782C4243FF00D7B12F /* SettingsView.swift in Sources */,
 				B694F57A2C427B5800D7B12F /* ContentViewSwitcher.swift in Sources */,
 				B694F54C2C42418000D7B12F /* goaroundApp.swift in Sources */,
+                A40000000000000000000001 /* ArticleContent.swift in Sources */,
                 A30000000000000000000001 /* WebsiteArticles.swift in Sources */,
 				A20000000000000000000006 /* RSSView.swift in Sources */,
 				A20000000000000000000004 /* RSSStore.swift in Sources */,

@@ -29,6 +29,7 @@ final class goaroundUITests: XCTestCase {
         let rssTab = app.tabBars.buttons["RSS"]
         XCTAssertTrue(rssTab.waitForExistence(timeout: 10))
         rssTab.tap()
+        app.buttons["RSSメニュー"].tap()
         app.buttons["フィード管理"].tap()
         let field = app.textFields["rssFeedURL"]
         XCTAssertTrue(field.waitForExistence(timeout: 5))
@@ -43,7 +44,8 @@ final class goaroundUITests: XCTestCase {
         app.buttons["追加"].tap()
         XCTAssertTrue(app.staticTexts["httpまたはhttpsのRSS/AtomフィードURLを入力してください。"].waitForExistence(timeout: 5))
         app.buttons["完了"].tap()
-        XCTAssertTrue(app.switches["未読のみ"].exists)
+        XCTAssertFalse(app.switches["未読のみ"].exists)
+        XCTAssertFalse(app.textFields["記事を検索"].exists)
         app.tabBars.buttons["ページ"].tap()
         XCTAssertTrue(app.tabBars.buttons["RSS"].exists)
     }
@@ -52,12 +54,44 @@ final class goaroundUITests: XCTestCase {
         let app = XCUIApplication()
         app.launch()
         app.tabBars.buttons["RSS"].tap()
+        app.buttons["RSSメニュー"].tap()
         app.buttons["フィード管理"].tap()
         app.segmentedControls.buttons["Webサイト"].tap()
         XCTAssertTrue(app.textFields["rssFeedURL"].exists)
         app.buttons["自動抽出で見つからない場合"].tap()
         XCTAssertTrue(app.textFields["websiteLinkSelector"].waitForExistence(timeout: 5))
         app.buttons["完了"].tap()
+    }
+
+    func testReaderOpensSavedBodyWithoutWebViewAndControlsLiveInMenu() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["--reader-ui-fixture"]
+        app.launch()
+        app.tabBars.buttons["RSS"].tap()
+        XCTAssertTrue(app.staticTexts["端末内で読める記事"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.switches["未読のみ"].exists)
+        XCTAssertFalse(app.textFields["rssSearchQuery"].exists)
+        XCTAssertFalse(app.buttons["フィード管理"].exists)
+        let front = XCTAttachment(screenshot: app.screenshot())
+        front.name = "RSS front without filters"
+        front.lifetime = .keepAlways
+        add(front)
+        app.buttons["RSSメニュー"].tap()
+        XCTAssertTrue(app.buttons["フィード管理"].exists)
+        app.buttons["記事を検索"].tap()
+        let search = app.textFields["rssSearchQuery"]
+        XCTAssertTrue(search.waitForExistence(timeout: 5))
+        search.tap()
+        search.typeText("端末内")
+        app.buttons["適用"].tap()
+        app.staticTexts["端末内で読める記事"].tap()
+        XCTAssertTrue(app.staticTexts["保存済みの本文"].waitForExistence(timeout: 5))
+        XCTAssertEqual(app.webViews.count, 0)
+        XCTAssertTrue(app.buttons["元の記事を開く"].exists)
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = "Offline article reader"
+        attachment.lifetime = .keepAlways
+        add(attachment)
     }
 
     func testLaunchPerformance() throws {
