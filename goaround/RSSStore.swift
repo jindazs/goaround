@@ -16,6 +16,7 @@ final class RSSStore: ObservableObject {
     private let cacheURL: URL?
     private var observer: NSObjectProtocol?
     private var accountGeneration = UUID()
+    private var refreshRequested = false
 
     var feeds: [RSSFeed] {
         state.feeds.values.compactMap(\.value).sorted {
@@ -89,16 +90,17 @@ final class RSSStore: ObservableObject {
         publish()
     }
 
-    func addFeed(_ text: String) async throws {
+    func addFeed(_ text: String, website: Bool = false, selector: String? = nil) async throws {
         let url = try RSSURLs.validated(text, removeFragment: true)
         guard state.feeds[url.absoluteString]?.value != nil || feeds.count < 100 else { throw RSSFailure.limit }
         let generation = accountGeneration
-        let parsed = try await RSSClient.fetch(url)
+        let parsed = try await (website ? WebsiteArticleClient.fetch(url, selector: selector) : RSSClient.fetch(url))
         try Task.checkCancellation()
         guard generation == accountGeneration else { throw CancellationError() }
         // Recheck after the network suspension, since another device may have added feeds.
         guard state.feeds[url.absoluteString]?.value != nil || feeds.count < 100 else { throw RSSFailure.limit }
-        state.feeds[url.absoluteString] = RSSChange(value: RSSFeed(url: url.absoluteString, title: parsed.title), date: nextDate())
+        state.feeds[url.absoluteString] = RSSChange(value: RSSFeed(url: url.absoluteString, title: parsed.title, sourceKind: website ? "website" : nil,
+                                                                  linkSelector: website ? selector : nil), date: nextDate())
         replaceArticles(parsed.articles, for: url.absoluteString)
         persist()
         publish()
@@ -149,9 +151,15 @@ final class RSSStore: ObservableObject {
     }
 
     func refresh() async {
-        guard !isRefreshing else { return }
+        guard !isRefreshing else { refreshRequested = true; return }
         isRefreshing = true
-        defer { isRefreshing = false }
+        defer {
+            isRefreshing = false
+            if refreshRequested {
+                refreshRequested = false
+                Task { await self.refresh() }
+            }
+        }
         synchronize()
         let generation = accountGeneration
         errors = [:]
@@ -159,9 +167,10 @@ final class RSSStore: ObservableObject {
         for feed in feeds {
             guard !Task.isCancelled, generation == accountGeneration else { return }
             do {
-                let parsed = try await RSSClient.fetch(try RSSURLs.validated(feed.url))
+                let url = try RSSURLs.validated(feed.url)
+                let parsed = try await (feed.isWebsite ? WebsiteArticleClient.fetch(url, selector: feed.linkSelector) : RSSClient.fetch(url))
                 guard !Task.isCancelled, generation == accountGeneration else { return }
-                guard state.feeds[feed.url]?.value != nil else { continue }
+                guard state.feeds[feed.url]?.value == feed else { continue }
                 replaceArticles(parsed.articles, for: feed.url)
             } catch {
                 guard !Task.isCancelled, generation == accountGeneration else { return }

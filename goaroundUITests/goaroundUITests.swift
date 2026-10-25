@@ -48,6 +48,18 @@ final class goaroundUITests: XCTestCase {
         XCTAssertTrue(app.tabBars.buttons["RSS"].exists)
     }
 
+    func testWebsiteSourceControls() throws {
+        let app = XCUIApplication()
+        app.launch()
+        app.tabBars.buttons["RSS"].tap()
+        app.buttons["フィード管理"].tap()
+        app.segmentedControls.buttons["Webサイト"].tap()
+        XCTAssertTrue(app.textFields["rssFeedURL"].exists)
+        app.buttons["自動抽出で見つからない場合"].tap()
+        XCTAssertTrue(app.textFields["websiteLinkSelector"].waitForExistence(timeout: 5))
+        app.buttons["完了"].tap()
+    }
+
     func testLaunchPerformance() throws {
         if #available(macOS 10.15, iOS 13.0, tvOS 13.0, watchOS 7.0, *) {
             // This measures how long it takes to launch your application.

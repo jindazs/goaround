@@ -419,3 +419,104 @@ final class OPMLImportTests: XCTestCase {
         XCTAssertEqual(store.feeds.count, 100)
     }
 }
+
+final class WebsiteArticleTests: XCTestCase {
+    private let source = URL(string: "https://example.com/news/")!
+
+    func testArticleCardsIgnoreNavigationNormalizeLinksAndSortDates() throws {
+        let html = """
+        <html><head><title>News</title></head><body>
+        <nav><h2><a href='/news/navigation'>Navigation link</a></h2></nav>
+        <main>
+        <article><header><h2><a href='/news/older?utm_source=email'>Older article</a></h2>
+        <time datetime='2026-10-01T12:00:00Z'></time></header><p>Older summary</p></article>
+        <article><h2><a href='/news/newer'>Newer article</a></h2><time datetime='2026-10-25T12:00:00Z'></time><p>New summary</p></article>
+        <article><h2><a href='https://other.example/news/external'>External site</a></h2></article>
+        <article><h2><a href='/category/news'>Category navigation</a></h2></article>
+        <article><h2><a href='javascript:alert(1)'>Unsafe link</a></h2></article>
+        </main></body></html>
+        """
+        let parsed = try WebsiteArticleParser.parse(html, pageURL: source, sourceURL: source)
+        XCTAssertEqual(parsed.articles.map(\.title), ["Newer article", "Older article"])
+        XCTAssertEqual(parsed.articles.last?.url?.absoluteString, "https://example.com/news/older")
+        XCTAssertEqual(parsed.articles.first?.summary, "New summary")
+        XCTAssertEqual(parsed.articles.first?.feedURL, source.absoluteString)
+        XCTAssertNotNil(parsed.articles.first?.date)
+        let changed = try WebsiteArticleParser.parse(html.replacingOccurrences(of: "Older article", with: "Edited article"), pageURL: source, sourceURL: source)
+        XCTAssertEqual(parsed.articles.last?.id, changed.articles.last?.id)
+    }
+
+    func testJSONLDItemListAndArticleMetadataMergeWithoutDuplicates() throws {
+        let html = """
+        <title>Example</title><script type='application/ld+json'>
+        {"@type":"ItemList","itemListElement":[{"@type":"ListItem","item":{"@type":"NewsArticle","headline":"Structured article","url":"/news/a","datePublished":"2026-10-25T12:00:00Z","description":"Summary"}}]}
+        </script><script type='application/ld+json'>
+        {"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","name":"Not an article","url":"/section"}]}
+        </script><article><h2><a href='/news/a'>Same article</a></h2></article>
+        """
+        let parsed = try WebsiteArticleParser.parse(html, pageURL: source, sourceURL: source)
+        XCTAssertEqual(parsed.articles.count, 1)
+        XCTAssertEqual(parsed.articles.first?.title, "Structured article")
+        XCTAssertNotNil(parsed.articles.first?.date)
+    }
+
+    func testReadMoreCardsAndUndatedPageOrder() throws {
+        let html = """
+        <title>Example</title><main>
+        <div class='content-card'><span class='content-card-title'>First posted article</span><a href='/blog/first'>Read more</a></div>
+        <div class='content-card'><span class='content-card-title'>Second posted article</span><a href='/blog/second'>Read more</a></div>
+        </main>
+        """
+        let parsed = try WebsiteArticleParser.parse(html, pageURL: source, sourceURL: source)
+        XCTAssertEqual(parsed.articles.map(\.title), ["First posted article", "Second posted article"])
+        XCTAssertTrue(parsed.articles.allSatisfy { $0.date == nil })
+    }
+
+    func testCustomSelectorAndInvalidSelector() throws {
+        let html = "<title>Custom</title><div class='updates'><a href='/entry/one'>Desired article</a></div><h2><a href='/entry/two'>Other article</a></h2>"
+        let parsed = try WebsiteArticleParser.parse(html, pageURL: source, sourceURL: source, selector: ".updates a")
+        XCTAssertEqual(parsed.articles.map(\.title), ["Desired article"])
+        XCTAssertThrowsError(try WebsiteArticleParser.parse(html, pageURL: source, sourceURL: source, selector: "[broken"))
+        XCTAssertThrowsError(try WebsiteArticleParser.parse("<title>Empty page</title>", pageURL: source, sourceURL: source))
+    }
+
+    func testOldSubscriptionsDecodeAndWebsiteOptionsPersistThroughSyncState() throws {
+        let old = try JSONDecoder().decode(RSSFeed.self, from: Data("{\"url\":\"https://example.com/feed\",\"title\":\"Old\"}".utf8))
+        XCTAssertFalse(old.isWebsite)
+        var state = RSSSyncState()
+        let website = RSSFeed(url: source.absoluteString, title: "Site", sourceKind: "website", linkSelector: ".updates a")
+        state.feeds[website.url] = RSSChange(value: website, date: Date())
+        state.reads["read-article"] = RSSChange(value: true, date: Date())
+        let restored = try JSONDecoder().decode(RSSSyncState.self, from: JSONEncoder().encode(state))
+        XCTAssertEqual(restored, state)
+        XCTAssertEqual(restored.feeds[website.url]?.value?.linkSelector, ".updates a")
+        XCTAssertEqual(restored.feeds[website.url]?.value?.isWebsite, true)
+    }
+}
+
+final class WebsiteRenderingTests: XCTestCase {
+    @MainActor
+    func testJavaScriptGeneratedArticleCards() async throws {
+        let source = URL(string: "https://example.com/news/")!
+        let html = """
+        <html><head><title>Dynamic News</title></head><body><main id="items"></main>
+        <script>setTimeout(function() {
+          document.getElementById('items').innerHTML = '<article><h2><a href="/news/dynamic">JavaScript article</a></h2><time datetime="2026-10-25"></time></article>';
+        }, 100);</script></body></html>
+        """
+        let parsed = try await WebsitePageRenderer.fetch(source, selector: nil, html: html)
+        XCTAssertEqual(parsed.articles.map(\.title), ["JavaScript article"])
+        XCTAssertEqual(parsed.articles.first?.url?.absoluteString, "https://example.com/news/dynamic")
+        XCTAssertNotNil(parsed.articles.first?.date)
+    }
+
+    @MainActor
+    func testRenderingCancellation() async {
+        let task = Task { try await WebsitePageRenderer.fetch(URL(string: "https://example.com")!, selector: nil, html: "<html><body>No articles</body></html>") }
+        task.cancel()
+        do {
+            _ = try await task.value
+            XCTFail("Cancelled rendering must not succeed")
+        } catch { XCTAssertTrue(error is CancellationError) }
+    }
+}

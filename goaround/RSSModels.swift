@@ -5,6 +5,10 @@ struct RSSFeed: Codable, Identifiable, Equatable {
     var id: String { url }
     var url: String
     var title: String
+    // Optional fields preserve compatibility with existing RSS subscriptions and OPML imports.
+    var sourceKind: String? = nil
+    var linkSelector: String? = nil
+    var isWebsite: Bool { sourceKind == "website" }
 }
 
 struct RSSArticle: Codable, Identifiable, Equatable {
@@ -163,14 +167,14 @@ final class RSSParser: NSObject, XMLParserDelegate {
             .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
             .trimmingCharacters(in: .whitespacesAndNewlines)
     }
-    private static func date(_ text: String) -> Date? {
+    static func date(_ text: String) -> Date? {
         let iso = ISO8601DateFormatter()
         if let date = iso.date(from: text) { return date }
         iso.formatOptions.insert(.withFractionalSeconds)
         if let date = iso.date(from: text) { return date }
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
-        for format in ["EEE, dd MMM yyyy HH:mm:ss Z", "dd MMM yyyy HH:mm:ss Z", "EEE, dd MMM yyyy HH:mm Z"] {
+        for format in ["EEE, dd MMM yyyy HH:mm:ss Z", "dd MMM yyyy HH:mm:ss Z", "EEE, dd MMM yyyy HH:mm Z", "yyyy-MM-dd"] {
             formatter.dateFormat = format
             if let date = formatter.date(from: text) { return date }
         }

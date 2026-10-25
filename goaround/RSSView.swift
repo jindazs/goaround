@@ -45,7 +45,7 @@ struct RSSView: View {
                     ContentUnavailableView {
                         Label("RSSを登録しましょう", systemImage: "dot.radiowaves.left.and.right")
                     } description: {
-                        Text("RSS/AtomのURLを追加すると、ここで記事を読めます。")
+                        Text("RSS/AtomやWebサイトの記事一覧URLを追加すると、ここで記事を読めます。")
                     } actions: {
                         Button("フィードを追加") { showFeeds = true }
                     }
@@ -113,7 +113,7 @@ struct RSSView: View {
                     }
                 }
             }
-            .task(id: store.feeds.map(\.url)) { await store.refresh() }
+            .task(id: store.feeds) { await store.refresh() }
             .onChange(of: store.feeds) { _, feeds in
                 if !feeds.contains(where: { $0.url == selectedFeed }) { selectedFeed = "" }
             }
@@ -126,6 +126,8 @@ private struct RSSFeedsView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var url = ""
     @State private var isAdding = false
+    @State private var website = false
+    @State private var linkSelector = ""
     @State private var error: String?
     @State private var pendingDeletion: RSSFeed?
     @State private var isImportingOPML = false
@@ -134,16 +136,33 @@ private struct RSSFeedsView: View {
     var body: some View {
         NavigationStack {
             List {
-                Section("RSS / Atomフィードを追加") {
-                    TextField("https://example.com/feed.xml", text: $url)
+                Section("フィード・サイトを追加") {
+                    Picker("取得方法", selection: $website) {
+                        Text("RSS / Atom").tag(false)
+                        Text("Webサイト").tag(true)
+                    }
+                    .pickerStyle(.segmented)
+                    .disabled(isAdding)
+                    TextField(website ? "記事一覧のURL" : "https://example.com/feed.xml", text: $url)
                         .keyboardType(.URL).textInputAutocapitalization(.never).autocorrectionDisabled()
                         .accessibilityIdentifier("rssFeedURL")
+                    if website {
+                        Text("RSSがないサイトの記事一覧からタイトルとリンクを取得します。公開日時がない記事はサイト内の掲載順で表示します。")
+                            .font(.footnote).foregroundStyle(.secondary)
+                        DisclosureGroup("自動抽出で見つからない場合") {
+                            TextField("記事リンクのCSSセレクタ（任意）", text: $linkSelector)
+                                .textInputAutocapitalization(.never).autocorrectionDisabled()
+                                .accessibilityIdentifier("websiteLinkSelector")
+                            Text("例：article h2 a。サイトのHTMLに合わせてリンクや記事カードを指定できます。")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
                     Button {
                         isAdding = true
                         error = nil
                         Task {
                             defer { isAdding = false }
-                            do { try await store.addFeed(url); url = "" }
+                            do { try await store.addFeed(url, website: website, selector: linkSelector); url = ""; linkSelector = "" }
                             catch { self.error = error.localizedDescription }
                         }
                     } label: {
@@ -161,7 +180,8 @@ private struct RSSFeedsView: View {
                 Section("登録フィード（\(store.feeds.count)）") {
                     ForEach(store.feeds) { feed in
                         VStack(alignment: .leading, spacing: 4) {
-                            Text(feed.title)
+                            Label(feed.title, systemImage: feed.isWebsite ? "globe" : "dot.radiowaves.left.and.right")
+                            if feed.isWebsite { Text("Webサイトから取得").font(.caption2).foregroundStyle(.secondary) }
                             Text(feed.url).font(.caption).foregroundStyle(.secondary).lineLimit(2)
                         }
                         .swipeActions {

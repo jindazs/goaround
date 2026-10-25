@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+        A30000000000000000000006 /* SwiftSoup-LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = A30000000000000000000007; };
+        A30000000000000000000001 /* WebsiteArticles.swift in Sources */ = {isa = PBXBuildFile; fileRef = A30000000000000000000002; };
+        A30000000000000000000003 /* SwiftSoup in Frameworks */ = {isa = PBXBuildFile; productRef = A30000000000000000000004; };
 		A20000000000000000000006 /* RSSView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000005; };
 		A20000000000000000000004 /* RSSStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000003; };
 		A20000000000000000000002 /* RSSModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000001; };
@@ -42,6 +45,8 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+        A30000000000000000000007 /* SwiftSoup-LICENSE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "SwiftSoup-LICENSE.txt"; sourceTree = "<group>"; };
+        A30000000000000000000002 /* WebsiteArticles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebsiteArticles.swift; sourceTree = "<group>"; };
 		A20000000000000000000005 /* RSSView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RSSView.swift; sourceTree = "<group>"; };
 		A20000000000000000000003 /* RSSStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RSSStore.swift; sourceTree = "<group>"; };
 		A20000000000000000000001 /* RSSModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RSSModels.swift; sourceTree = "<group>"; };
@@ -68,6 +73,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+                A30000000000000000000003 /* SwiftSoup in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -113,6 +119,8 @@
 			isa = PBXGroup;
 			children = (
 				B694F54B2C42418000D7B12F /* goaroundApp.swift */,
+                A30000000000000000000007 /* SwiftSoup-LICENSE.txt */,
+                A30000000000000000000002 /* WebsiteArticles.swift */,
 				A20000000000000000000005 /* RSSView.swift */,
 				A20000000000000000000003 /* RSSStore.swift */,
 				A20000000000000000000001 /* RSSModels.swift */,
@@ -169,6 +177,7 @@
 			dependencies = (
 			);
 			name = goaround;
+            packageProductDependencies = (A30000000000000000000004 /* SwiftSoup */);
 			productName = goaround;
 			productReference = B694F5482C42418000D7B12F /* goaround.app */;
 			productType = "com.apple.product-type.application";
@@ -241,6 +250,7 @@
 				Base,
 			);
 			mainGroup = B694F53F2C42418000D7B12F;
+            packageReferences = (A30000000000000000000005 /* SwiftSoup */);
 			productRefGroup = B694F5492C42418000D7B12F /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -259,6 +269,7 @@
 			files = (
 				B694F5532C42418200D7B12F /* Preview Assets.xcassets in Resources */,
 				B694F5502C42418200D7B12F /* Assets.xcassets in Resources */,
+                A30000000000000000000006 /* SwiftSoup-LICENSE.txt in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -289,6 +300,7 @@
 				B694F5782C4243FF00D7B12F /* SettingsView.swift in Sources */,
 				B694F57A2C427B5800D7B12F /* ContentViewSwitcher.swift in Sources */,
 				B694F54C2C42418000D7B12F /* goaroundApp.swift in Sources */,
+                A30000000000000000000001 /* WebsiteArticles.swift in Sources */,
 				A20000000000000000000006 /* RSSView.swift in Sources */,
 				A20000000000000000000004 /* RSSStore.swift in Sources */,
 				A20000000000000000000002 /* RSSModels.swift in Sources */,
@@ -328,6 +340,20 @@
 		};
 /* End PBXTargetDependency section */
 
+/* Begin XCRemoteSwiftPackageReference section */
+        A30000000000000000000005 /* SwiftSoup */ = {
+            isa = XCRemoteSwiftPackageReference;
+            repositoryURL = "https://github.com/scinfu/SwiftSoup.git";
+            requirement = {kind = exactVersion; version = 2.13.9; };
+        };
+/* End XCRemoteSwiftPackageReference section */
+/* Begin XCSwiftPackageProductDependency section */
+        A30000000000000000000004 /* SwiftSoup */ = {
+            isa = XCSwiftPackageProductDependency;
+            package = A30000000000000000000005;
+            productName = SwiftSoup;
+        };
+/* End XCSwiftPackageProductDependency section */
 /* Begin XCBuildConfiguration section */
 		B694F56A2C42418200D7B12F /* Debug */ = {
 			isa = XCBuildConfiguration;
