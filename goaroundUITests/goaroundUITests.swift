@@ -121,6 +121,56 @@ final class goaroundUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["記事がありません"].waitForExistence(timeout: 5))
     }
 
+    func testScrollingPastAnArticleMarksItRead() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["--reader-ui-fixture", "--scroll-ui-fixture"]
+        app.launch()
+        app.tabBars.buttons["RSS"].tap()
+        XCTAssertTrue(app.buttons["未読、スクロール記事 1"].waitForExistence(timeout: 5))
+        app.swipeUp()
+        let readAfterScroll = NSPredicate(format: "value != %@", "24件未読")
+        expectation(for: readAfterScroll, evaluatedWith: app.buttons["RSSメニュー"])
+        waitForExpectations(timeout: 8)
+        app.swipeDown()
+        XCTAssertTrue(app.buttons["既読、スクロール記事 1"].waitForExistence(timeout: 5))
+    }
+
+    func testUnreadOnlyScrollDoesNotMarkUnseenArticlesRead() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["--reader-ui-fixture", "--scroll-ui-fixture"]
+        app.launch()
+        app.tabBars.buttons["RSS"].tap()
+        app.buttons["RSSメニュー"].tap()
+        app.buttons["未読のみ"].tap()
+        app.swipeUp()
+        expectation(for: NSPredicate(format: "value != %@", "24件未読"), evaluatedWith: app.buttons["RSSメニュー"])
+        waitForExpectations(timeout: 8)
+        let value = app.buttons["RSSメニュー"].value as? String ?? ""
+        let count = Int(value.replacingOccurrences(of: "件未読", with: "")) ?? 0
+        XCTAssertGreaterThan(count, 0)
+        XCTAssertLessThan(count, 24)
+        app.swipeDown()
+        XCTAssertFalse(app.buttons["未読、スクロール記事 1"].exists)
+        XCTAssertFalse(app.staticTexts["記事がありません"].exists)
+    }
+
+    func testBottomMarkAllReadButton() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["--reader-ui-fixture", "--scroll-ui-fixture"]
+        app.launch()
+        app.tabBars.buttons["RSS"].tap()
+        let bottom = app.buttons["rssBottomMarkAllRead"]
+        for _ in 0..<10 {
+            if bottom.exists && bottom.isHittable { break }
+            app.swipeUp()
+        }
+        XCTAssertTrue(bottom.isHittable)
+        bottom.tap()
+        app.buttons["RSSメニュー"].tap()
+        app.buttons["未読のみ"].tap()
+        XCTAssertTrue(app.staticTexts["記事がありません"].waitForExistence(timeout: 5))
+    }
+
     func testLaunchPerformance() throws {
         if #available(macOS 10.15, iOS 13.0, tvOS 13.0, watchOS 7.0, *) {
             // This measures how long it takes to launch your application.

@@ -276,3 +276,44 @@ final class OPMLParser: NSObject, XMLParserDelegate {
         parser.abortParsing()
     }
 }
+
+/// Tracks rows actually seen and then scrolled above the viewport. Layout/filter changes do not count.
+struct RSSScrollReadTracker {
+    private var seen = Set<String>()
+    private var visible = Set<String>()
+    private var frames: [String: CGRect] = [:]
+    private var passed = Set<String>()
+
+    mutating func update(_ newFrames: [String: CGRect], viewport: CGRect, orderedIDs: [String], scrolling: Bool) {
+        guard !viewport.isEmpty else { return }
+        let available = Set(orderedIDs)
+        seen.formIntersection(available)
+        visible.formIntersection(available)
+        passed.formIntersection(available)
+        let current = Set(newFrames.filter { available.contains($0.key) && $0.value.maxY > viewport.minY && $0.value.minY < viewport.maxY }.map(\.key))
+        if scrolling {
+            passed.formUnion(seen.filter { id in newFrames[id].map { $0.maxY <= viewport.minY } ?? false })
+            let common = visible.intersection(current)
+            let movedUp = common.contains { id in
+                guard let before = frames[id], let after = newFrames[id] else { return false }
+                return after.minY < before.minY - 1
+            }
+            let order = Dictionary(uniqueKeysWithValues: orderedIDs.enumerated().map { ($0.element, $0.offset) })
+            let oldIndex = visible.compactMap { order[$0] }.min()
+            let newIndex = current.compactMap { order[$0] }.min()
+            // Fast flings can recycle a row before its final offscreen geometry is delivered.
+            if movedUp || (oldIndex != nil && newIndex != nil && newIndex! > oldIndex!) {
+                passed.formUnion(visible.subtracting(current).filter { newFrames[$0] == nil })
+            }
+        }
+        seen.formUnion(current)
+        visible = current
+        frames = newFrames
+    }
+
+    mutating func drain() -> Set<String> {
+        let result = passed.subtracting(visible)
+        passed.removeAll()
+        return result
+    }
+}

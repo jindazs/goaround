@@ -10,6 +10,11 @@ struct RSSView: View {
     @State private var showFeeds = false
     @State private var showSearch = false
     @State private var selectedArticle: RSSArticle?
+    @State private var scrollTracker = RSSScrollReadTracker()
+    @State private var articleFrames: [String: CGRect] = [:]
+    @State private var listViewport = CGRect.zero
+    @StateObject private var scrollObserver = RSSListScrollObserver()
+    @State private var scrollIdleTask: Task<Void, Never>?
 
     private var visibleArticles: [RSSArticle] {
         store.articles.filter {
@@ -72,8 +77,30 @@ struct RSSView: View {
                         }.tint(.blue)
                     }
                     .accessibilityLabel("\(store.isRead(article) ? "既読" : "未読")、\(article.title)")
+                    .background(RSSRowScrollProbe(id: article.id, observer: scrollObserver))
+                }
+                if !store.articles.isEmpty {
+                    Section {
+                        Button("全てを既読", systemImage: "checkmark.circle.fill") {
+                            store.setRead(true, articles: store.articles)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .accessibilityIdentifier("rssBottomMarkAllRead")
+                    }
                 }
             }
+            .onAppear {
+                scrollObserver.onUpdate = { frames, viewport, scrolling in
+                    articleFrames = frames
+                    listViewport = viewport
+                    guard selectedArticle == nil, !showFeeds, !showSearch else { return }
+                    scrollTracker.update(frames, viewport: viewport, orderedIDs: visibleArticles.map(\.id), scrolling: scrolling)
+                    if scrolling { finishScrollingWhenIdle() }
+                }
+                scrollObserver.resume()
+            }
+            .onChange(of: visibleArticles.map(\.id)) { _, _ in resetScrollTracking() }
+            .onDisappear { resetScrollTracking(); scrollObserver.stop() }
             .navigationTitle("RSS")
             .refreshable { await store.refresh() }
             .toolbar {
@@ -105,6 +132,7 @@ struct RSSView: View {
                         }.disabled(store.articles.isEmpty)
                     } label: { Image(systemName: "ellipsis.circle") }
                     .accessibilityLabel("RSSメニュー")
+                    .accessibilityValue("\(store.articles.filter { !store.isRead($0) }.count)件未読")
                 }
             }
             .sheet(isPresented: $showFeeds) { RSSFeedsView(store: store) }
@@ -128,6 +156,123 @@ struct RSSView: View {
             .onChange(of: store.feeds) { _, feeds in
                 if !feeds.contains(where: { $0.url == selectedFeed }) { selectedFeed = "" }
             }
+        }
+    }
+
+    private func finishScrollingWhenIdle() {
+        scrollIdleTask?.cancel()
+        scrollIdleTask = Task {
+            do { try await Task.sleep(for: .milliseconds(200)) }
+            catch { return }
+            guard !Task.isCancelled else { return }
+            if scrollObserver.isInteracting { finishScrollingWhenIdle(); return }
+            let ids = scrollTracker.drain()
+            let read = store.articles.filter { ids.contains($0.id) && !store.isRead($0) && $0.id != selectedArticle?.id }
+            guard !read.isEmpty else { return }
+            var transaction = Transaction()
+            transaction.disablesAnimations = true
+            withTransaction(transaction) { store.setRead(true, articles: read) }
+        }
+    }
+
+    private func resetScrollTracking() {
+        scrollIdleTask?.cancel()
+        scrollTracker = RSSScrollReadTracker()
+        scrollTracker.update(articleFrames, viewport: listViewport, orderedIDs: visibleArticles.map(\.id), scrolling: false)
+    }
+}
+
+/// Observe UIKit's actual scroll offset; List recycles cells without updating SwiftUI preferences on every scroll.
+@MainActor
+private final class RSSListScrollObserver: ObservableObject {
+    private final class WeakRow {
+        weak var view: UIView?
+        init(_ view: UIView) { self.view = view }
+    }
+    var onUpdate: (([String: CGRect], CGRect, Bool) -> Void)?
+    var isInteracting: Bool { scrollView.map { $0.isDragging || $0.isDecelerating } ?? false }
+    private var rows: [String: WeakRow] = [:]
+    private weak var scrollView: UIScrollView?
+    private var observation: NSKeyValueObservation?
+    private var scheduled = false
+    private var userMoved = false
+
+    func register(_ id: String, view: UIView) {
+        rows[id] = WeakRow(view)
+        if scrollView == nil {
+            var parent = view.superview
+            while let current = parent {
+                if let scroll = current as? UIScrollView { scrollView = scroll; break }
+                parent = current.superview
+            }
+        }
+        resume()
+        scheduleUpdate(scrolling: false)
+    }
+    func unregister(_ id: String, view: UIView) {
+        if rows[id]?.view === view { rows.removeValue(forKey: id) }
+    }
+    func resume() {
+        guard observation == nil, let scrollView else { return }
+        observation = scrollView.observe(\.contentOffset, options: [.new]) { [weak self] scroll, _ in
+            self?.scheduleUpdate(scrolling: scroll.isDragging || scroll.isDecelerating)
+        }
+        scheduleUpdate(scrolling: false)
+    }
+    func stop() {
+        observation?.invalidate()
+        observation = nil
+        onUpdate = nil
+        userMoved = false
+    }
+    func scheduleUpdate(scrolling: Bool) {
+        userMoved = userMoved || scrolling
+        guard !scheduled else { return }
+        scheduled = true
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.scheduled = false
+            guard let scroll = self.scrollView, scroll.window != nil else { return }
+            let moving = self.userMoved
+            self.userMoved = false
+            let viewport = scroll.bounds.inset(by: scroll.adjustedContentInset)
+            var frames: [String: CGRect] = [:]
+            for (id, row) in self.rows {
+                if let view = row.view, view.window != nil, view.isDescendant(of: scroll) {
+                    frames[id] = view.convert(view.bounds, to: scroll)
+                }
+            }
+            self.onUpdate?(frames, viewport, moving)
+        }
+    }
+}
+
+private struct RSSRowScrollProbe: UIViewRepresentable {
+    let id: String
+    let observer: RSSListScrollObserver
+    func makeUIView(context: Context) -> ProbeView {
+        let view = ProbeView()
+        view.isUserInteractionEnabled = false
+        view.id = id
+        view.observer = observer
+        return view
+    }
+    func updateUIView(_ view: ProbeView, context: Context) {
+        view.id = id
+        view.observer = observer
+        if view.window != nil { observer.register(id, view: view) }
+    }
+    static func dismantleUIView(_ view: ProbeView, coordinator: ()) { view.observer?.unregister(view.id, view: view) }
+    final class ProbeView: UIView {
+        var id = ""
+        weak var observer: RSSListScrollObserver?
+        override func didMoveToWindow() {
+            super.didMoveToWindow()
+            if window != nil { observer?.register(id, view: self) }
+        }
+        override func layoutSubviews() {
+            super.layoutSubviews()
+            if window != nil { observer?.register(id, view: self) }
         }
     }
 }

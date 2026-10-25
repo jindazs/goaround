@@ -648,3 +648,45 @@ private final class ReaderResponseProtocol: URLProtocol {
     }
     override func stopLoading() {}
 }
+
+final class RSSScrollReadTrackerTests: XCTestCase {
+    private let viewport = CGRect(x: 0, y: 0, width: 300, height: 200)
+    private func row(_ y: CGFloat) -> CGRect { CGRect(x: 0, y: y, width: 300, height: 80) }
+
+    func testOnlyPreviouslyVisibleRowsScrolledAboveViewportAreRead() {
+        var tracker = RSSScrollReadTracker()
+        tracker.update(["a": row(20), "b": row(120), "unseen": row(800)], viewport: viewport, orderedIDs: ["a", "b", "unseen"], scrolling: false)
+        tracker.update(["a": row(-100), "b": row(0), "unseen": row(680)], viewport: viewport, orderedIDs: ["a", "b", "unseen"], scrolling: true)
+        XCTAssertEqual(tracker.drain(), ["a"])
+        XCTAssertTrue(tracker.drain().isEmpty)
+    }
+
+    func testFilteringOrLayoutChangesDoNotMarkRowsRead() {
+        var tracker = RSSScrollReadTracker()
+        tracker.update(["a": row(20)], viewport: viewport, orderedIDs: ["a", "b"], scrolling: false)
+        tracker.update(["a": row(-100), "b": row(20)], viewport: viewport, orderedIDs: ["b"], scrolling: true)
+        XCTAssertTrue(tracker.drain().isEmpty)
+    }
+
+    func testFastFlingHandlesRecycledRowsButDoesNotReadUnseenRows() {
+        var tracker = RSSScrollReadTracker()
+        tracker.update(["a": row(20)], viewport: viewport, orderedIDs: ["a", "b", "c"], scrolling: false)
+        tracker.update(["c": row(20)], viewport: viewport, orderedIDs: ["a", "b", "c"], scrolling: true)
+        XCTAssertEqual(tracker.drain(), ["a"])
+    }
+
+    func testReturningToAnArticleBeforeScrollStopsKeepsItUnread() {
+        var tracker = RSSScrollReadTracker()
+        tracker.update(["a": row(20)], viewport: viewport, orderedIDs: ["a", "b"], scrolling: false)
+        tracker.update(["a": row(-100), "b": row(20)], viewport: viewport, orderedIDs: ["a", "b"], scrolling: true)
+        tracker.update(["a": row(20), "b": row(120)], viewport: viewport, orderedIDs: ["a", "b"], scrolling: true)
+        XCTAssertTrue(tracker.drain().isEmpty)
+    }
+
+    func testRowsMovingBelowViewportAreNotTreatedAsReadAhead() {
+        var tracker = RSSScrollReadTracker()
+        tracker.update(["a": row(120)], viewport: viewport, orderedIDs: ["a"], scrolling: false)
+        tracker.update(["a": row(250)], viewport: viewport, orderedIDs: ["a"], scrolling: true)
+        XCTAssertTrue(tracker.drain().isEmpty)
+    }
+}

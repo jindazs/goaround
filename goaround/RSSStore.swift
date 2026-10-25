@@ -353,11 +353,19 @@ extension RSSStore {
         defaults.removePersistentDomain(forName: "ReaderUITest")
         let feed = RSSFeed(url: "https://reader-test.invalid/feed", title: "オフラインテスト")
         let article = RSSArticle(id: "reader-fixture", feedURL: feed.url, title: "端末内で読める記事", url: URL(string: "https://reader-test.invalid/article")!, summary: "保存された要約です。", date: Date(timeIntervalSince1970: 1792886400))
+        let fixtureArticles: [RSSArticle]
+        if ProcessInfo.processInfo.arguments.contains("--scroll-ui-fixture") {
+            fixtureArticles = (1...24).map { index in
+                RSSArticle(id: "scroll-fixture-\(index)", feedURL: feed.url, title: "スクロール記事 \(index)",
+                    url: URL(string: "https://reader-test.invalid/article/\(index)")!,
+                    summary: "画面の上に通過した記事だけを既読にするための確認用の要約です。", date: article.date)
+            }
+        } else { fixtureArticles = [article] }
         var state = RSSSyncState()
         state.feeds[feed.url] = RSSChange(value: feed, date: Date())
         defaults.set(try? JSONEncoder().encode(state), forKey: Self.localKey)
         let list = root.appendingPathComponent("articles.json")
-        try? JSONEncoder().encode([article]).write(to: list, options: .atomic)
+        try? JSONEncoder().encode(fixtureArticles).write(to: list, options: .atomic)
         let cache = ArticleContentCache(directory: root.appendingPathComponent("bodies"))
         cache.save(ArticleContent(articleID: article.id, sourceURL: article.url!, title: article.title,
             blocks: [.init(kind: .heading, text: "保存済みの本文"),
@@ -365,7 +373,7 @@ extension RSSStore {
                      .init(kind: .quote, text: "見出し・段落・引用も端末内で表示します。")]))
         return RSSStore(defaults: defaults, cloud: ReaderFixtureCloud(), cacheURL: list, contentCache: cache,
             fetchContent: { _ in throw ArticleContentError.noBody },
-            fetchFeed: { _ in RSSParsedFeed(title: feed.title, articles: [article]) })
+            fetchFeed: { _ in RSSParsedFeed(title: feed.title, articles: fixtureArticles) })
     }
 }
 #endif
