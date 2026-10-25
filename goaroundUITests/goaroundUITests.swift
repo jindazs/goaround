@@ -154,6 +154,42 @@ final class goaroundUITests: XCTestCase {
         XCTAssertFalse(app.staticTexts["記事がありません"].exists)
     }
 
+    func testUnreadOnlyAutoReadKeepsRowsUntilFilterChanges() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["--reader-ui-fixture", "--scroll-ui-fixture"]
+        app.launch()
+        app.tabBars.buttons["RSS"].tap()
+        app.buttons["RSSメニュー"].tap()
+        app.buttons["未読のみ"].tap()
+        app.swipeUp()
+        expectation(for: NSPredicate(format: "value != %@", "24件未読"), evaluatedWith: app.buttons["RSSメニュー"])
+        waitForExpectations(timeout: 8)
+
+        let visibleRows = app.buttons.matching(NSPredicate(format: "label BEGINSWITH '未読、スクロール記事 '"))
+            .allElementsBoundByIndex.filter { $0.isHittable }
+        XCTAssertFalse(visibleRows.isEmpty)
+        let positions = visibleRows.map { $0.frame.minY }
+        let unreadCount = app.buttons["RSSメニュー"].value as? String
+        // Give any delayed layout or automatic read work a chance to move the remaining rows.
+        let settled = expectation(description: "List has settled")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) { settled.fulfill() }
+        wait(for: [settled], timeout: 3)
+        for (row, y) in zip(visibleRows, positions) {
+            XCTAssertEqual(row.frame.minY, y, accuracy: 1)
+        }
+        XCTAssertEqual(app.buttons["RSSメニュー"].value as? String, unreadCount)
+
+        app.swipeDown()
+        XCTAssertTrue(app.buttons["既読、スクロール記事 1"].waitForExistence(timeout: 5),
+                      "Automatically read rows must retain their space during browsing")
+        app.buttons["RSSメニュー"].tap()
+        app.buttons["未読のみ"].tap()
+        app.buttons["RSSメニュー"].tap()
+        app.buttons["未読のみ"].tap()
+        XCTAssertFalse(app.buttons["既読、スクロール記事 1"].exists,
+                       "Changing the filter must apply the current unread state")
+    }
+
     func testBottomMarkAllReadButton() throws {
         let app = XCUIApplication()
         app.launchArguments = ["--reader-ui-fixture", "--scroll-ui-fixture"]

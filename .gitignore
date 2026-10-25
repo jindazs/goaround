@@ -1,0 +1,11 @@
+.DS_Store
+.build/
+.build-device/
+DerivedData/
+*.xcresult
+*.log
+xcuserdata/
+*.xcuserstate
+.env
+.env.*
+!.env.example

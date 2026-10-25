@@ -10,6 +10,8 @@ struct RSSView: View {
     @State private var showFeeds = false
     @State private var showSearch = false
     @State private var selectedArticle: RSSArticle?
+    // Keep automatically read rows for this browsing session so List does not collapse above the viewport.
+    @State private var scrollReadIDs = Set<String>()
     @State private var scrollTracker = RSSScrollReadTracker()
     @State private var articleFrames: [String: CGRect] = [:]
     @State private var listViewport = CGRect.zero
@@ -19,7 +21,7 @@ struct RSSView: View {
     private var visibleArticles: [RSSArticle] {
         store.articles.filter {
             (selectedFeed.isEmpty || $0.feedURL == selectedFeed) &&
-            (!unreadOnly || !store.isRead($0)) &&
+            (!unreadOnly || !store.isRead($0) || scrollReadIDs.contains($0.id)) &&
             (search.isEmpty || $0.title.localizedCaseInsensitiveContains(search) || $0.summary.localizedCaseInsensitiveContains(search))
         }
     }
@@ -50,6 +52,7 @@ struct RSSView: View {
                 }
                 ForEach(visibleArticles) { article in
                     Button {
+                        scrollReadIDs.remove(article.id)
                         selectedArticle = article
                         store.prepareToRead(article)
                     } label: {
@@ -73,6 +76,7 @@ struct RSSView: View {
                     .buttonStyle(.plain)
                     .swipeActions {
                         Button(store.isRead(article) ? "未読に戻す" : "既読にする") {
+                            scrollReadIDs.remove(article.id)
                             store.setRead(!store.isRead(article), articles: [article])
                         }.tint(.blue)
                     }
@@ -82,6 +86,7 @@ struct RSSView: View {
                 if !store.articles.isEmpty {
                     Section {
                         Button("全てを既読", systemImage: "checkmark.circle.fill") {
+                            scrollReadIDs.removeAll()
                             store.setRead(true, articles: store.articles)
                         }
                         .frame(maxWidth: .infinity)
@@ -100,7 +105,13 @@ struct RSSView: View {
                 scrollObserver.resume()
             }
             .onChange(of: visibleArticles.map(\.id)) { _, _ in resetScrollTracking() }
-            .onDisappear { resetScrollTracking(); scrollObserver.stop() }
+            .onChange(of: unreadOnly) { _, _ in resetScrollReadSession() }
+            .onChange(of: selectedFeed) { _, _ in resetScrollReadSession() }
+            .onChange(of: search) { _, _ in resetScrollReadSession() }
+            .onChange(of: store.isRefreshing) { _, refreshing in
+                if refreshing { resetScrollReadSession() }
+            }
+            .onDisappear { resetScrollReadSession(); scrollObserver.stop() }
             .navigationTitle("RSS")
             .refreshable { await store.refresh() }
             .toolbar {
@@ -125,9 +136,12 @@ struct RSSView: View {
                         Button(store.isRefreshing ? "更新中…" : "更新", systemImage: "arrow.clockwise") { Task { await store.refresh() } }
                             .disabled(store.isRefreshing)
                         Button("表示中の記事をすべて既読にする", systemImage: "checkmark.circle") {
-                            store.setRead(true, articles: visibleArticles)
+                            let articles = visibleArticles
+                            scrollReadIDs.removeAll()
+                            store.setRead(true, articles: articles)
                         }.disabled(visibleArticles.isEmpty)
                         Button("すべての記事を既読にする", systemImage: "checkmark.circle.fill") {
+                            scrollReadIDs.removeAll()
                             store.setRead(true, articles: store.articles)
                         }.disabled(store.articles.isEmpty)
                     } label: { Image(systemName: "ellipsis.circle") }
@@ -171,8 +185,16 @@ struct RSSView: View {
             guard !read.isEmpty else { return }
             var transaction = Transaction()
             transaction.disablesAnimations = true
-            withTransaction(transaction) { store.setRead(true, articles: read) }
+            withTransaction(transaction) {
+                if unreadOnly { scrollReadIDs.formUnion(read.map(\.id)) }
+                store.setRead(true, articles: read)
+            }
         }
+    }
+
+    private func resetScrollReadSession() {
+        scrollReadIDs.removeAll()
+        resetScrollTracking()
     }
 
     private func resetScrollTracking() {
